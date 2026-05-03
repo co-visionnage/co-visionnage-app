@@ -2,7 +2,7 @@ import { SquarePen } from 'lucide-react';
 
 import { SeriesCard } from '@/entities/series';
 import { EditSeriesDialog, MarkWatchedDialog } from '@/features';
-import { useAppSounds } from '@/shared/hooks/useAppSounds';
+import { useAppSounds } from '@/shared/hooks';
 import { Series, SeriesData } from '@/shared/types';
 import { Badge, Button } from '@/shared/ui/lib';
 

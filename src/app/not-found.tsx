@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { useAppSounds } from '@/shared/hooks/useAppSounds';
+import { useAppSounds } from '@/shared/hooks';
 
 const NotFound = () => {
   const router = useRouter();

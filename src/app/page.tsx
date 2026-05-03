@@ -1,14 +1,12 @@
-import { createClient } from '@/shared/api/supabase/server';
+import { getHomePageData } from '@/shared/api/postgres/queries';
+import { getCurrentUser } from '@/shared/api/postgres/server';
 import { SeriesStatus } from '@/shared/types';
 import { SeriesHeader } from '@/shared/ui';
 import ClientTrackerWrapper from './_components/ClientTrackerWrapper';
 import { CreateFamilyForm, JoinFamilyForm } from './_components/Forms';
 
 export default async function HomePage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     return (
@@ -25,20 +23,16 @@ export default async function HomePage() {
     );
   }
 
-  const { data: membership } = await supabase
-    .from('family_members')
-    .select(`role, families ( id, name, invite_code )`)
-    .eq('user_id', user.id)
-    .single();
+  const { membership, series } = await getHomePageData();
+  const familyData = membership?.family;
 
-  const familyData = Array.isArray(membership?.families)
-    ? membership?.families[0]
-    : membership?.families;
-
-  if (!membership || !familyData) {
+  if (!familyData) {
     return (
       <div className='brutal-font min-h-screen bg-blue-500 p-8'>
-        <SeriesHeader userEmail={user.email} />
+        <SeriesHeader
+          userDisplayName={user.displayName ?? user.email}
+          userEmail={user.email}
+        />
         <div className='flex flex-col items-center justify-center py-10'>
           <div className='w-full max-w-md border-4 border-black bg-white p-8 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)]'>
             <h1 className='mb-6 text-4xl font-black tracking-tighter text-black uppercase'>
@@ -53,77 +47,16 @@ export default async function HomePage() {
     );
   }
 
-  const { data: initialSeries, error: initialSeriesError } = await supabase
-    .from('family_series')
-    .select('*')
-    .eq('family_id', familyData.id)
-    .order('created_at', { ascending: false });
-
-  if (initialSeriesError) {
-    console.error('HomePage: error loading family_series', {
-      message: initialSeriesError.message,
-      code: (initialSeriesError as { code?: string }).code,
-      familyId: familyData.id,
-      userId: user.id,
-    });
-  }
-
-  const seriesIds = (initialSeries ?? [])
-    .map((s) => s?.id)
-    .filter((id): id is string => typeof id === 'string');
-
-  let seriesStatuses: Array<{
-    series_id: string;
-    status?: unknown;
-    rating?: number | null;
-    comment?: string | null;
-  }> = [];
-  let seriesStatusesError: { message: string; code?: string } | undefined;
-
-  if (seriesIds.length > 0) {
-    const result = await supabase
-      .from('family_series_status')
-      .select('series_id, status, rating, comment')
-      .eq('user_id', user.id)
-      .in('series_id', seriesIds);
-
-    seriesStatuses = result.data ?? [];
-    seriesStatusesError = result.error
-      ? {
-          message: result.error.message,
-          code: (result.error as { code?: string }).code,
-        }
-      : undefined;
-  }
-
-  if (seriesStatusesError) {
-    console.error('HomePage: error loading family_series_status', {
-      message: seriesStatusesError.message,
-      code: seriesStatusesError.code,
-      familyId: familyData.id,
-      userId: user.id,
-      seriesIdsCount: seriesIds.length,
-    });
-  }
-
-  const statusBySeriesId = new Map(
-    (seriesStatuses ?? []).map((row) => [row.series_id, row]),
-  );
-
-  const mergedSeries = (initialSeries ?? []).map((s) => {
-    const statusRow = statusBySeriesId.get(s.id);
-    return {
-      ...s,
-      status: (statusRow?.status as SeriesStatus | undefined) ?? 'to-watch',
-      rating: statusRow?.rating ?? undefined,
-      comment: statusRow?.comment ?? undefined,
-    };
-  });
-
   return (
     <ClientTrackerWrapper
+      currentUserId={user.id}
+      currentUserRole={membership.role}
       family={familyData}
-      initialSeries={mergedSeries}
+      initialSeries={series.map((item) => ({
+        ...item,
+        status: item.status as SeriesStatus,
+      }))}
+      userDisplayName={user.displayName ?? user.email}
       userEmail={user.email}
     />
   );

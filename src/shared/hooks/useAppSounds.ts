@@ -1,8 +1,13 @@
+'use client';
+
 import useSound from 'use-sound';
+
+import { useUiPreferences } from './useUiPreferences';
 
 const config = { volume: 0.2 };
 
 export const useAppSounds = () => {
+  const { preferences } = useUiPreferences();
   const [playClick] = useSound('/sounds/click.mp3', {
     ...config,
     volume: 0.1,
@@ -15,9 +20,15 @@ export const useAppSounds = () => {
     playbackRate: 0.3,
   });
 
+  const playIfEnabled = (callback: () => void) => {
+    if (preferences.soundsEnabled) {
+      callback();
+    }
+  };
+
   return {
-    playClick,
-    playSuccess,
-    playDelete,
+    playClick: () => playIfEnabled(playClick),
+    playSuccess: () => playIfEnabled(playSuccess),
+    playDelete: () => playIfEnabled(playDelete),
   };
 };

@@ -1,10 +1,10 @@
 'use client';
 
-import type { FamilyActionState } from '@/shared/actions/family';
+import type { FamilyActionState } from '@/shared/actions/family-postgres';
 
 import { useActionState } from 'react';
 
-import { joinFamily } from '@/shared/actions/family';
+import { joinFamily } from '@/shared/actions/family-postgres';
 
 const initialState: FamilyActionState = {};
 

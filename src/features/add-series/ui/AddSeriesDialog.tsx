@@ -1,7 +1,10 @@
-import { Plus } from 'lucide-react';
-import { ChangeEvent, useState } from 'react';
+'use client';
 
-import { useAppSounds } from '@/shared/hooks/useAppSounds';
+import { Plus } from 'lucide-react';
+import { useState } from 'react';
+
+import { uploadSeriesImage } from '@/shared/api/storage/client';
+import { useAppSounds } from '@/shared/hooks';
 import { SeriesData, SeriesStatus } from '@/shared/types';
 import {
   Button,
@@ -23,56 +26,68 @@ import {
 } from '@/shared/ui/lib';
 
 interface AddSeriesDialogProperties {
-  onAdd: (series: SeriesData) => void;
+  onAdd: (series: SeriesData) => void | Promise<void>;
 }
 
 export const AddSeriesDialog = ({ onAdd }: AddSeriesDialogProperties) => {
   const [isOpen, setIsOpen] = useState(false);
   const [genreInput, setGenreInput] = useState('');
+  const [uploadError, setUploadError] = useState<string | null>();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { playClick } = useAppSounds();
   const [newSeries, setNewSeries] = useState({
     comment: '',
     image_url: undefined as string | undefined,
+    imageFile: undefined as File | undefined,
     rating: 5,
     status: 'to-watch' as SeriesStatus,
     title: '',
     year: new Date().getFullYear(),
   });
 
-  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.addEventListener('load', (event) => {
-        setNewSeries((previous) => ({
-          ...previous,
-          image_url: (event.target?.result as string) ?? undefined,
-        }));
-      });
-      reader.readAsDataURL(file);
-    }
+  const handleFileChange = (file: File | undefined) => {
+    setNewSeries((previous) => ({
+      ...previous,
+      imageFile: file,
+    }));
+    setUploadError(undefined);
   };
 
-  const handleSubmit = () => {
-    if (newSeries.title.trim()) {
+  const handleSubmit = async () => {
+    if (!newSeries.title.trim() || isSubmitting) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    setUploadError(undefined);
+
+    try {
+      let imageUrl = newSeries.image_url;
+
+      if (newSeries.imageFile) {
+        imageUrl = await uploadSeriesImage(newSeries.imageFile);
+      }
+
       const genresArray = genreInput
         .split(/[ ,]+/)
-        .map((g) => g.trim())
-        .filter((g) => g.length > 0);
+        .map((genre) => genre.trim())
+        .filter((genre) => genre.length > 0);
 
-      onAdd({
+      await onAdd({
         title: newSeries.title.trim(),
         genres: genresArray,
         year: newSeries.year,
         status: newSeries.status,
-        image_url: newSeries.image_url,
+        image_url: imageUrl,
         rating: newSeries.status === 'watched' ? newSeries.rating : undefined,
-        comment: newSeries.status === 'watched' ? newSeries.comment : undefined,
+        comment:
+          newSeries.status === 'watched' ? newSeries.comment.trim() : undefined,
       });
 
       setNewSeries({
         comment: '',
         image_url: undefined,
+        imageFile: undefined,
         rating: 5,
         status: 'to-watch',
         title: '',
@@ -80,6 +95,14 @@ export const AddSeriesDialog = ({ onAdd }: AddSeriesDialogProperties) => {
       });
       setGenreInput('');
       setIsOpen(false);
+    } catch (error) {
+      setUploadError(
+        error instanceof Error
+          ? error.message
+          : 'Не удалось загрузить изображение',
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -94,7 +117,7 @@ export const AddSeriesDialog = ({ onAdd }: AddSeriesDialogProperties) => {
           ДОБАВИТЬ СЕРИАЛ!
         </Button>
       </DialogTrigger>
-      <DialogContent className='max-h-[90vh] max-w-md border-4 border-black bg-cyan-400 [&>button]:-top-3 [&>button]:-right-3 [&>button]:rounded-none [&>button]:border-2 [&>button]:border-black [&>button]:bg-white [&>button]:opacity-100 [&>button]:hover:bg-red-500'>
+      <DialogContent className='max-w-md border-4 border-black bg-cyan-400 [&>button]:top-4 [&>button]:right-4 [&>button]:rounded-none [&>button]:border-2 [&>button]:border-black [&>button]:bg-white [&>button]:opacity-100 [&>button]:hover:bg-red-500'>
         <DialogHeader>
           <div className='mb-4 -rotate-1 transform border-2 border-black bg-purple-600 p-2 text-yellow-300'>
             <DialogTitle className='brutal-font text-center text-xl font-black'>
@@ -129,7 +152,7 @@ export const AddSeriesDialog = ({ onAdd }: AddSeriesDialogProperties) => {
             <Input
               className='brutal-font border-2 border-black bg-orange-300 font-bold text-black'
               id='genre'
-              placeholder='ужасы комедия, драма'
+              placeholder='ужасы, комедия, драма'
               value={genreInput}
               onChange={(event) => setGenreInput(event.target.value)}
             />
@@ -168,7 +191,7 @@ export const AddSeriesDialog = ({ onAdd }: AddSeriesDialogProperties) => {
             </Select>
           </div>
 
-          {newSeries.status === 'watched' && (
+          {newSeries.status === 'watched' ? (
             <>
               <div className='rotate-1 transform border-2 border-black bg-yellow-400 p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'>
                 <Label className='brutal-font font-bold text-black'>
@@ -176,19 +199,19 @@ export const AddSeriesDialog = ({ onAdd }: AddSeriesDialogProperties) => {
                 </Label>
                 <Select
                   value={newSeries.rating.toString()}
-                  onValueChange={(v) =>
-                    setNewSeries({ ...newSeries, rating: Number(v) })
+                  onValueChange={(value) =>
+                    setNewSeries({ ...newSeries, rating: Number(value) })
                   }
                 >
                   <SelectTrigger className='brutal-font border-2 border-black bg-white font-bold'>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className='border-2 border-black bg-pink-300 font-bold'>
-                    <SelectItem value='5'>⭐⭐⭐⭐⭐ ОТЛИЧНО!</SelectItem>
-                    <SelectItem value='4'>⭐⭐⭐⭐ ХОРОШО</SelectItem>
-                    <SelectItem value='3'>⭐⭐⭐ НОРМ</SelectItem>
-                    <SelectItem value='2'>⭐⭐ ПЛОХО</SelectItem>
-                    <SelectItem value='1'>⭐ УЖАСНО</SelectItem>
+                    <SelectItem value='5'>★★★★★ ОТЛИЧНО!</SelectItem>
+                    <SelectItem value='4'>★★★★ ХОРОШО</SelectItem>
+                    <SelectItem value='3'>★★★ НОРМ</SelectItem>
+                    <SelectItem value='2'>★★ ПЛОХО</SelectItem>
+                    <SelectItem value='1'>★ УЖАСНО</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -203,7 +226,7 @@ export const AddSeriesDialog = ({ onAdd }: AddSeriesDialogProperties) => {
                 <Textarea
                   className='brutal-font border-2 border-black bg-cyan-300 font-bold text-black'
                   id='comment'
-                  placeholder='ЧТО ДУМАЕТЕ?'
+                  placeholder='Что думаете?'
                   value={newSeries.comment}
                   onChange={(event) =>
                     setNewSeries({ ...newSeries, comment: event.target.value })
@@ -211,7 +234,7 @@ export const AddSeriesDialog = ({ onAdd }: AddSeriesDialogProperties) => {
                 />
               </div>
             </>
-          )}
+          ) : undefined}
 
           <div className='rotate-1 transform border-2 border-black bg-cyan-400 p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'>
             <Label className='brutal-font font-bold text-black'>
@@ -221,17 +244,30 @@ export const AddSeriesDialog = ({ onAdd }: AddSeriesDialogProperties) => {
               accept='image/*'
               className='brutal-font border-2 border-black bg-pink-300 font-bold text-black file:border-0 file:bg-black file:font-black file:text-white'
               type='file'
-              onChange={handleFileChange}
+              onChange={(event) =>
+                handleFileChange(event.target.files?.[0] ?? undefined)
+              }
             />
+            {newSeries.imageFile ? (
+              <p className='mt-2 text-xs font-black text-black'>
+                Выбрано: {newSeries.imageFile.name}
+              </p>
+            ) : undefined}
+            {uploadError ? (
+              <p className='mt-2 text-xs font-black text-red-700'>
+                {uploadError}
+              </p>
+            ) : undefined}
           </div>
         </div>
 
         <DialogFooter>
           <Button
             className='brutal-font rotate-1 transform border-2 border-black bg-lime-400 font-black text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-transform hover:rotate-0 hover:bg-lime-500 active:translate-x-1 active:translate-y-1 active:shadow-none'
-            onClick={handleSubmit}
+            disabled={isSubmitting}
+            onClick={() => void handleSubmit()}
           >
-            ДОБАВИТЬ!
+            {isSubmitting ? 'ЗАГРУЖАЕМ...' : 'ДОБАВИТЬ!'}
           </Button>
         </DialogFooter>
       </DialogContent>

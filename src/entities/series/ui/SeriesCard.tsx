@@ -1,7 +1,7 @@
 import { X } from 'lucide-react';
 import { ReactNode } from 'react';
 
-import { useAppSounds } from '@/shared/hooks/useAppSounds';
+import { useAppSounds } from '@/shared/hooks';
 import { SeriesStatus } from '@/shared/types';
 import {
   AlertDialog,

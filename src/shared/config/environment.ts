@@ -1,9 +1,18 @@
 export const ENV = {
-  SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
-  SITE_URL: process.env.NEXT_PUBLIC_SITE_URL!,
+  DATABASE_URL: process.env.DATABASE_URL,
+  DB_HOST: process.env.DB_HOST,
+  DB_PORT: process.env.DB_PORT,
+  DB_NAME: process.env.DB_NAME,
+  DB_USER: process.env.DB_USER,
+  DB_PASSWORD: process.env.DB_PASSWORD,
+  SESSION_SECRET: process.env.SESSION_SECRET,
+  SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
+  GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID,
+  GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET,
+  STORAGE_ENDPOINT: process.env.STORAGE_ENDPOINT,
+  STORAGE_REGION: process.env.STORAGE_REGION,
+  STORAGE_ACCESS_KEY: process.env.STORAGE_ACCESS_KEY,
+  STORAGE_SECRET_KEY: process.env.STORAGE_SECRET_KEY,
+  STORAGE_BUCKET: process.env.STORAGE_BUCKET,
+  STORAGE_PUBLIC_URL: process.env.STORAGE_PUBLIC_URL,
 } as const;
-
-if (!ENV.SUPABASE_URL || !ENV.SUPABASE_ANON_KEY) {
-  throw new Error('Missing Supabase Environment Variables');
-}

@@ -2,7 +2,7 @@ import { RotateCcw, SquarePen } from 'lucide-react';
 
 import { SeriesCard } from '@/entities/series';
 import { EditSeriesDialog } from '@/features/edit-series';
-import { useAppSounds } from '@/shared/hooks/useAppSounds';
+import { useAppSounds } from '@/shared/hooks';
 import { Series, SeriesData } from '@/shared/types';
 import { Badge, Button } from '@/shared/ui/lib';
 
