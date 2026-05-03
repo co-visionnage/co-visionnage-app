@@ -1,6 +1,6 @@
 import { type NextRequest } from 'next/server';
 
-import { updateSession } from '@/shared/api/supabase/middleware';
+import { updateSession } from '@/shared/api/postgres/middleware';
 
 export default async function proxy(request: NextRequest) {
   return await updateSession(request);
