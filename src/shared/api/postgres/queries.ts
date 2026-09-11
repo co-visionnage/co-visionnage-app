@@ -1,6 +1,20 @@
 import type { PoolClient } from 'pg';
 
-import { FamilyMember, FamilyRole, SeriesStatus } from '@/shared/types';
+import {
+  FamilyMember,
+  FamilyRole,
+  FamilyStats,
+  FamilyStatsGenre,
+  FamilyStatsMonth,
+  Recommendation,
+  SeriesComment,
+  SeriesProgress,
+  SeriesReaction,
+  SeriesStatus,
+  WatchHistoryEntry,
+  WatchPoll,
+  WatchPollOption,
+} from '@/shared/types';
 import { requireCurrentUser, withUserContext } from './server';
 
 type FamilyMembershipRow = {
@@ -28,6 +42,9 @@ type SeriesRow = {
   status: SeriesStatus | null;
   rating: number | null;
   comment: string | null;
+  total_seasons: number | null;
+  total_episodes: number | null;
+  episode_runtime_minutes: number | null;
 };
 
 export async function getCurrentMembership() {
@@ -79,6 +96,9 @@ async function getFamilySeriesWithClient(
         series.year,
         series.image_url,
         series.created_at,
+        series.total_seasons,
+        series.total_episodes,
+        series.episode_runtime_minutes,
         status.status,
         status.rating,
         status.comment
@@ -101,7 +121,62 @@ async function getFamilySeriesWithClient(
     status: row.status ?? 'to-watch',
     rating: row.rating ?? undefined,
     comment: row.comment ?? undefined,
+    totalSeasons: row.total_seasons ?? undefined,
+    totalEpisodes: row.total_episodes ?? undefined,
+    episodeRuntimeMinutes: row.episode_runtime_minutes ?? undefined,
   }));
+}
+
+export async function getSeriesById(seriesId: string) {
+  const user = await requireCurrentUser();
+
+  return withUserContext(user.id, async (client) => {
+    const result = await client.query<SeriesRow & { family_id: string }>(
+      `
+        SELECT
+          series.id,
+          series.family_id,
+          series.title,
+          series.genres,
+          series.year,
+          series.image_url,
+          series.created_at,
+          series.total_seasons,
+          series.total_episodes,
+          series.episode_runtime_minutes,
+          status.status,
+          status.rating,
+          status.comment
+        FROM public.family_series series
+        LEFT JOIN public.family_series_status status
+          ON status.series_id = series.id
+         AND status.user_id = $2
+        WHERE series.id = $1
+        LIMIT 1
+      `,
+      [seriesId, user.id],
+    );
+
+    const row = result.rows[0];
+    if (!row) return;
+
+    return {
+      familyId: row.family_id,
+      series: {
+        id: row.id,
+        title: row.title,
+        genres: row.genres ?? [],
+        year: row.year ?? new Date().getFullYear(),
+        image_url: row.image_url,
+        status: row.status ?? 'to-watch',
+        rating: row.rating ?? undefined,
+        comment: row.comment ?? undefined,
+        totalSeasons: row.total_seasons ?? undefined,
+        totalEpisodes: row.total_episodes ?? undefined,
+        episodeRuntimeMinutes: row.episode_runtime_minutes ?? undefined,
+      },
+    };
+  });
 }
 
 export async function getFamilySeries(familyId: string) {
@@ -207,6 +282,436 @@ export async function getFamilyMembers(familyId: string) {
         displayName: member.display_name ?? undefined,
         role: member.role,
         joinedAt: member.joined_at,
+      }),
+    );
+  });
+}
+
+export async function getFamilyMemberEmailsWithClient(
+  client: PoolClient,
+  familyId: string,
+  excludeUserId: string,
+) {
+  const result = await client.query<{ email: string }>(
+    `
+      SELECT profile.email
+      FROM public.family_members member
+      JOIN public.profiles profile ON profile.id = member.user_id
+      WHERE member.family_id = $1
+        AND member.user_id != $2
+    `,
+    [familyId, excludeUserId],
+  );
+
+  return result.rows.map((row) => row.email);
+}
+
+type SeriesCommentRow = {
+  id: string;
+  series_id: string;
+  user_id: string;
+  display_name: string | null;
+  email: string;
+  body: string;
+  created_at: string;
+};
+
+export async function getSeriesComments(seriesId: string) {
+  const user = await requireCurrentUser();
+
+  return withUserContext(user.id, async (client) => {
+    const result = await client.query<SeriesCommentRow>(
+      `
+        SELECT
+          comment.id,
+          comment.series_id,
+          comment.user_id,
+          profile.display_name,
+          profile.email,
+          comment.body,
+          comment.created_at
+        FROM public.family_series_comments AS comment
+        JOIN public.profiles AS profile ON profile.id = comment.user_id
+        WHERE comment.series_id = $1
+        ORDER BY comment.created_at ASC
+      `,
+      [seriesId],
+    );
+
+    return result.rows.map(
+      (row): SeriesComment => ({
+        id: row.id,
+        seriesId: row.series_id,
+        userId: row.user_id,
+        authorName: row.display_name ?? row.email,
+        body: row.body,
+        createdAt: row.created_at,
+        isMine: row.user_id === user.id,
+      }),
+    );
+  });
+}
+
+type SeriesReactionRow = {
+  emoji: string;
+  count: string;
+  reacted_by_me: boolean;
+};
+
+export async function getSeriesReactions(seriesId: string) {
+  const user = await requireCurrentUser();
+
+  return withUserContext(user.id, async (client) => {
+    const result = await client.query<SeriesReactionRow>(
+      `
+        SELECT
+          emoji,
+          COUNT(*) AS count,
+          BOOL_OR(user_id = $2) AS reacted_by_me
+        FROM public.family_series_reactions
+        WHERE series_id = $1
+        GROUP BY emoji
+        ORDER BY MIN(created_at) ASC
+      `,
+      [seriesId, user.id],
+    );
+
+    return result.rows.map(
+      (row): SeriesReaction => ({
+        emoji: row.emoji,
+        count: Number(row.count),
+        reactedByMe: row.reacted_by_me,
+      }),
+    );
+  });
+}
+
+type SeriesProgressRow = {
+  series_id: string;
+  user_id: string;
+  display_name: string | null;
+  email: string;
+  current_season: number;
+  current_episode: number;
+  updated_at: string;
+};
+
+export async function getSeriesProgress(seriesId: string) {
+  const user = await requireCurrentUser();
+
+  return withUserContext(user.id, async (client) => {
+    const result = await client.query<SeriesProgressRow>(
+      `
+        SELECT
+          progress.series_id,
+          progress.user_id,
+          profile.display_name,
+          profile.email,
+          progress.current_season,
+          progress.current_episode,
+          progress.updated_at
+        FROM public.family_series_progress AS progress
+        JOIN public.profiles AS profile ON profile.id = progress.user_id
+        WHERE progress.series_id = $1
+        ORDER BY progress.updated_at DESC
+      `,
+      [seriesId],
+    );
+
+    return result.rows.map(
+      (row): SeriesProgress => ({
+        seriesId: row.series_id,
+        userId: row.user_id,
+        displayName: row.display_name ?? row.email,
+        currentSeason: row.current_season,
+        currentEpisode: row.current_episode,
+        updatedAt: row.updated_at,
+        isMine: row.user_id === user.id,
+      }),
+    );
+  });
+}
+
+type MonthlyHoursRow = {
+  month: string;
+  hours: string;
+};
+
+type GenreCountRow = {
+  genre: string;
+  count: string;
+};
+
+export async function getFamilyStats(familyId: string) {
+  const user = await requireCurrentUser();
+
+  return withUserContext(user.id, async (client) => {
+    const totalsResult = await client.query<{
+      total_hours: string;
+      total_series: string;
+    }>(
+      `
+        SELECT
+          COALESCE(
+            SUM(
+              COALESCE(series.total_episodes, 1) *
+              COALESCE(series.episode_runtime_minutes, 45)
+            ) / 60.0,
+            0
+          ) AS total_hours,
+          COUNT(*) AS total_series
+        FROM public.family_series_status status
+        JOIN public.family_series series ON series.id = status.series_id
+        WHERE series.family_id = $1
+          AND status.status = 'watched'
+      `,
+      [familyId],
+    );
+
+    const byMonthResult = await client.query<MonthlyHoursRow>(
+      `
+        SELECT
+          TO_CHAR(COALESCE(status.watched_at, status.updated_at), 'YYYY-MM') AS month,
+          SUM(
+            COALESCE(series.total_episodes, 1) *
+            COALESCE(series.episode_runtime_minutes, 45)
+          ) / 60.0 AS hours
+        FROM public.family_series_status status
+        JOIN public.family_series series ON series.id = status.series_id
+        WHERE series.family_id = $1
+          AND status.status = 'watched'
+        GROUP BY month
+        ORDER BY month DESC
+        LIMIT 6
+      `,
+      [familyId],
+    );
+
+    const topGenresResult = await client.query<GenreCountRow>(
+      `
+        SELECT genre, COUNT(*) AS count
+        FROM public.family_series series
+        JOIN public.family_series_status status ON status.series_id = series.id
+        CROSS JOIN LATERAL UNNEST(series.genres) AS genre
+        WHERE series.family_id = $1
+          AND status.status = 'watched'
+        GROUP BY genre
+        ORDER BY count DESC
+        LIMIT 5
+      `,
+      [familyId],
+    );
+
+    const totals = totalsResult.rows[0];
+
+    return {
+      totalHoursWatched: Math.round(Number(totals?.total_hours ?? 0)),
+      totalWatchedSeries: Number(totals?.total_series ?? 0),
+      byMonth: byMonthResult.rows
+        .map(
+          (row): FamilyStatsMonth => ({
+            month: row.month,
+            hours: Math.round(Number(row.hours)),
+          }),
+        )
+        .toReversed(),
+      topGenres: topGenresResult.rows.map(
+        (row): FamilyStatsGenre => ({
+          genre: row.genre,
+          count: Number(row.count),
+        }),
+      ),
+    } satisfies FamilyStats;
+  });
+}
+
+type RecommendationRow = {
+  id: string;
+  title: string;
+  genres: string[] | null;
+  year: number | null;
+  image_url: string | null;
+  score: string;
+};
+
+export async function getRecommendations(familyId: string) {
+  const user = await requireCurrentUser();
+
+  return withUserContext(user.id, async (client) => {
+    const result = await client.query<RecommendationRow>(
+      `
+        WITH favourite_genres AS (
+          SELECT genre, COUNT(*) AS weight
+          FROM public.family_series series
+          JOIN public.family_series_status status ON status.series_id = series.id
+          CROSS JOIN LATERAL UNNEST(series.genres) AS genre
+          WHERE series.family_id = $1
+            AND status.status = 'watched'
+            AND status.rating >= 4
+          GROUP BY genre
+        )
+        SELECT
+          series.id,
+          series.title,
+          series.genres,
+          series.year,
+          series.image_url,
+          COALESCE(SUM(favourite_genres.weight), 0) AS score
+        FROM public.family_series series
+        LEFT JOIN public.family_series_status my_status
+          ON my_status.series_id = series.id
+         AND my_status.user_id = $2
+        LEFT JOIN LATERAL UNNEST(series.genres) AS series_genre ON true
+        LEFT JOIN favourite_genres ON favourite_genres.genre = series_genre
+        WHERE series.family_id = $1
+          AND (my_status.status IS NULL OR my_status.status = 'to-watch')
+        GROUP BY series.id, series.title, series.genres, series.year, series.image_url
+        ORDER BY score DESC, series.created_at DESC
+        LIMIT 10
+      `,
+      [familyId, user.id],
+    );
+
+    return result.rows.map(
+      (row): Recommendation => ({
+        id: row.id,
+        title: row.title,
+        genres: row.genres ?? [],
+        year: row.year ?? new Date().getFullYear(),
+        image_url: row.image_url,
+        score: Number(row.score),
+      }),
+    );
+  });
+}
+
+type WatchHistoryRow = {
+  series_id: string;
+  title: string;
+  image_url: string | null;
+  rating: number | null;
+  watched_at: string | null;
+  updated_at: string;
+  display_name: string | null;
+  email: string;
+};
+
+export async function getWatchHistory(familyId: string) {
+  const user = await requireCurrentUser();
+
+  return withUserContext(user.id, async (client) => {
+    const result = await client.query<WatchHistoryRow>(
+      `
+        SELECT
+          series.id AS series_id,
+          series.title,
+          series.image_url,
+          status.rating,
+          status.watched_at,
+          status.updated_at,
+          profile.display_name,
+          profile.email
+        FROM public.family_series_status status
+        JOIN public.family_series series ON series.id = status.series_id
+        JOIN public.profiles profile ON profile.id = status.user_id
+        WHERE series.family_id = $1
+          AND status.status = 'watched'
+        ORDER BY COALESCE(status.watched_at, status.updated_at) DESC
+        LIMIT 100
+      `,
+      [familyId],
+    );
+
+    return result.rows.map(
+      (row): WatchHistoryEntry => ({
+        seriesId: row.series_id,
+        title: row.title,
+        image_url: row.image_url,
+        rating: row.rating ?? undefined,
+        watchedAt: row.watched_at ?? row.updated_at,
+        watchedBy: row.display_name ?? row.email,
+      }),
+    );
+  });
+}
+
+type WatchPollRow = {
+  id: string;
+  title: string;
+  is_open: boolean;
+  created_at: string;
+  created_by: string;
+};
+
+type WatchPollOptionRow = {
+  id: string;
+  poll_id: string;
+  series_id: string;
+  title: string;
+  image_url: string | null;
+  votes: string;
+  voted_by_me: boolean;
+};
+
+export async function getFamilyWatchPolls(familyId: string) {
+  const user = await requireCurrentUser();
+
+  return withUserContext(user.id, async (client) => {
+    const pollsResult = await client.query<WatchPollRow>(
+      `
+        SELECT id, title, is_open, created_at, created_by
+        FROM public.family_watch_polls
+        WHERE family_id = $1
+        ORDER BY created_at DESC
+        LIMIT 5
+      `,
+      [familyId],
+    );
+
+    const polls = pollsResult.rows;
+    if (polls.length === 0) {
+      return [];
+    }
+
+    const optionsResult = await client.query<WatchPollOptionRow>(
+      `
+        SELECT
+          option.id,
+          option.poll_id,
+          option.series_id,
+          series.title,
+          series.image_url,
+          COUNT(vote.id) AS votes,
+          BOOL_OR(vote.user_id = $2) AS voted_by_me
+        FROM public.family_watch_poll_options option
+        JOIN public.family_series series ON series.id = option.series_id
+        LEFT JOIN public.family_watch_poll_votes vote ON vote.option_id = option.id
+        WHERE option.poll_id = ANY($1::uuid[])
+        GROUP BY option.id, option.poll_id, option.series_id, series.title, series.image_url
+        ORDER BY votes DESC
+      `,
+      [polls.map((poll) => poll.id), user.id],
+    );
+
+    return polls.map(
+      (poll): WatchPoll => ({
+        id: poll.id,
+        title: poll.title,
+        isOpen: poll.is_open,
+        createdAt: poll.created_at,
+        createdBy: poll.created_by,
+        options: optionsResult.rows
+          .filter((option) => option.poll_id === poll.id)
+          .map(
+            (option): WatchPollOption => ({
+              id: option.id,
+              seriesId: option.series_id,
+              title: option.title,
+              image_url: option.image_url,
+              votes: Number(option.votes),
+              votedByMe: option.voted_by_me,
+            }),
+          ),
       }),
     );
   });

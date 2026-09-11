@@ -145,3 +145,113 @@
 .animate-brutal {
   animation: brutal-shake 0.1s infinite;
 }
+
+/*
+  Theme system
+  ------------
+  The product's default look is a "brutalist" style baked directly into
+  component markup (thick black borders, hard offset shadows, rotated
+  cards, neon Tailwind background colors). Rather than rewrite every
+  component to consume design tokens, the alternate themes below repaint
+  that same markup globally by targeting the recurring utility classes
+  through attribute selectors on [data-theme]. This is intentionally a
+  broad-strokes v1: some low-traffic screens may still show a rough edge
+  or two, but the three themes are fully usable end to end.
+*/
+
+[data-theme='minimal'] {
+  --brutal-surface: #f4f4f5;
+  --brutal-surface-strong: #e4e4e7;
+  --brutal-ink: #18181b;
+}
+
+[data-theme='minimal'] .brutal-font,
+[data-theme='minimal'] [class*='font-black'] {
+  font-weight: 600 !important;
+  letter-spacing: normal !important;
+}
+
+[data-theme='minimal'] [class*='border-4'],
+[data-theme='minimal'] [class*='border-2'],
+[data-theme='minimal'] [class*='border-\['] {
+  border-width: 1px !important;
+  border-radius: 0.75rem !important;
+}
+
+[data-theme='minimal'] [class*='border-black'] {
+  border-color: var(--border) !important;
+}
+
+[data-theme='minimal'] [class*='shadow-\['] {
+  box-shadow: 0 1px 3px rgb(0 0 0 / 8%) !important;
+}
+
+[data-theme='minimal'] [class*='rotate-'] {
+  transform: none !important;
+}
+
+[data-theme='minimal'] [class*='bg-yellow-'],
+[data-theme='minimal'] [class*='bg-lime-'],
+[data-theme='minimal'] [class*='bg-pink-'],
+[data-theme='minimal'] [class*='bg-cyan-'],
+[data-theme='minimal'] [class*='bg-orange-'],
+[data-theme='minimal'] [class*='bg-purple-'],
+[data-theme='minimal'] [class*='bg-blue-'] {
+  background-color: var(--brutal-surface) !important;
+  background-image: none !important;
+  color: var(--brutal-ink) !important;
+}
+
+[data-theme='minimal'] [class*='text-yellow-'],
+[data-theme='minimal'] [class*='text-pink-'],
+[data-theme='minimal'] [class*='text-cyan-'],
+[data-theme='minimal'] [class*='text-lime-'],
+[data-theme='minimal'] [class*='text-purple-'] {
+  color: var(--brutal-ink) !important;
+}
+
+[data-theme='minimal'] .animate-brutal {
+  animation: none !important;
+}
+
+[data-theme='dark'] {
+  --brutal-surface: #18181b;
+  --brutal-surface-strong: #27272a;
+  --brutal-ink: #f4f4f5;
+}
+
+[data-theme='dark'] body {
+  background-color: #0a0a0b;
+}
+
+[data-theme='dark'] [class*='bg-white'] {
+  background-color: var(--brutal-surface) !important;
+  color: var(--brutal-ink) !important;
+}
+
+[data-theme='dark'] [class*='border-black'] {
+  border-color: var(--brutal-ink) !important;
+}
+
+[data-theme='dark'] [class*='text-black'] {
+  color: var(--brutal-ink) !important;
+}
+
+[data-theme='dark'] [class*='text-gray-500'],
+[data-theme='dark'] [class*='text-gray-400'] {
+  color: #a1a1aa !important;
+}
+
+[data-theme='dark'] [class*='bg-gray-200'] {
+  background-color: var(--brutal-surface-strong) !important;
+  color: #71717a !important;
+}
+
+[data-theme='dark'] [class*='bg-gray-900'] {
+  background-color: #f4f4f5 !important;
+  color: #18181b !important;
+}
+
+[data-theme='dark'] [class*='bg-blue-500'] {
+  background-color: #0a0a0b !important;
+}
