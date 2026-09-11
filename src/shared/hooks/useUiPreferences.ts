@@ -1,6 +1,6 @@
 'use client';
 
-import type { UiPreferences } from '@/shared/types';
+import type { AppTheme, UiPreferences } from '@/shared/types';
 
 import { useEffect, useState } from 'react';
 
@@ -54,6 +54,12 @@ export function useUiPreferences() {
       updatePreferences({
         ...preferences,
         confettiEnabled: nextValue,
+      });
+    },
+    setTheme(nextValue: AppTheme) {
+      updatePreferences({
+        ...preferences,
+        theme: nextValue,
       });
     },
   };

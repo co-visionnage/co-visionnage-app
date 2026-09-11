@@ -121,3 +121,79 @@ export async function joinFamily(
   revalidatePath('/');
   return { success: true };
 }
+
+export async function setMemberRoleAction(
+  familyId: string,
+  memberUserId: string,
+  role: 'admin' | 'member',
+): Promise<FamilyActionState> {
+  const user = await requireCurrentUser().catch(() => {});
+
+  if (!user) return { error: 'Не авторизован' };
+
+  try {
+    await withUserContext(user.id, async (client) => {
+      const membershipResult = await client.query<{ role: string }>(
+        `
+          SELECT role
+          FROM public.family_members
+          WHERE family_id = $1
+            AND user_id = $2
+          LIMIT 1
+        `,
+        [familyId, user.id],
+      );
+
+      if (membershipResult.rows[0]?.role !== 'owner') {
+        throw new Error('Только владелец семьи может менять роли участников');
+      }
+
+      await client.query(
+        `
+          UPDATE public.family_members
+          SET role = $3
+          WHERE family_id = $1
+            AND user_id = $2
+            AND role != 'owner'
+        `,
+        [familyId, memberUserId, role],
+      );
+    });
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error ? error.message : 'Не удалось изменить роль',
+    };
+  }
+
+  revalidatePath('/');
+  return { success: true };
+}
+
+export async function transferFamilyOwnershipAction(
+  familyId: string,
+  newOwnerUserId: string,
+): Promise<FamilyActionState> {
+  const user = await requireCurrentUser().catch(() => {});
+
+  if (!user) return { error: 'Не авторизован' };
+
+  try {
+    await withUserContext(user.id, async (client) => {
+      await client.query('SELECT public.transfer_family_ownership($1, $2)', [
+        familyId,
+        newOwnerUserId,
+      ]);
+    });
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Не удалось передать владение семьёй',
+    };
+  }
+
+  revalidatePath('/');
+  return { success: true };
+}

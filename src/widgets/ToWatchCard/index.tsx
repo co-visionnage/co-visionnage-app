@@ -1,7 +1,13 @@
-import { SquarePen } from 'lucide-react';
+import { Link2, SquarePen } from 'lucide-react';
+import NextLink from 'next/link';
 
 import { SeriesCard } from '@/entities/series';
-import { EditSeriesDialog, MarkWatchedDialog } from '@/features';
+import {
+  EditSeriesDialog,
+  EpisodeProgressControl,
+  MarkWatchedDialog,
+  SeriesDiscussionDialog,
+} from '@/features';
 import { useAppSounds } from '@/shared/hooks';
 import { Series, SeriesData } from '@/shared/types';
 import { Badge, Button } from '@/shared/ui/lib';
@@ -26,20 +32,32 @@ export const ToWatchCard = ({
   return (
     <SeriesCard
       actions={
-        <EditSeriesDialog
-          series={series}
-          trigger={
+        <>
+          <NextLink href={`/series/${series.id}`}>
             <Button
-              className='h-8 w-8 rounded-none border-2 border-black bg-yellow-400 p-0 text-black hover:bg-yellow-500'
+              className='h-8 w-8 rounded-none border-2 border-black bg-cyan-300 p-0 text-black hover:bg-cyan-400'
               size='sm'
               variant='ghost'
               onClick={() => playClick()}
             >
-              <SquarePen className='h-4 w-4' />
+              <Link2 className='h-4 w-4' />
             </Button>
-          }
-          onSave={onEdit}
-        />
+          </NextLink>
+          <EditSeriesDialog
+            series={series}
+            trigger={
+              <Button
+                className='h-8 w-8 rounded-none border-2 border-black bg-yellow-400 p-0 text-black hover:bg-yellow-500'
+                size='sm'
+                variant='ghost'
+                onClick={() => playClick()}
+              >
+                <SquarePen className='h-4 w-4' />
+              </Button>
+            }
+            onSave={onEdit}
+          />
+        </>
       }
       footer={
         <div onClick={() => playClick()}>
@@ -61,6 +79,9 @@ export const ToWatchCard = ({
           </Badge>
         ))}
       </div>
+
+      <EpisodeProgressControl series={series} />
+      <SeriesDiscussionDialog seriesId={series.id} seriesTitle={series.title} />
     </SeriesCard>
   );
 };

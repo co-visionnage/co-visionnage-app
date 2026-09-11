@@ -1,10 +1,39 @@
 'use server';
 
+import { getFamilyMemberEmailsWithClient } from '@/shared/api/postgres/queries';
 import {
   requireCurrentUser,
   withUserContext,
 } from '@/shared/api/postgres/server';
+import { notifyFamilyByEmail } from '@/shared/lib/email/notifyFamilyByEmail';
+import { notifyFamily } from '@/shared/lib/push/notifyFamily';
 import { SeriesData } from '@/shared/types';
+
+async function notifyFamilyOfEvent(
+  userId: string,
+  familyId: string,
+  title: string,
+  body: string,
+) {
+  try {
+    await withUserContext(userId, async (client) => {
+      await notifyFamily(client, familyId, userId, {
+        title,
+        body,
+        url: '/',
+      });
+
+      const emails = await getFamilyMemberEmailsWithClient(
+        client,
+        familyId,
+        userId,
+      );
+      await notifyFamilyByEmail(emails, title, body);
+    });
+  } catch {
+    // best-effort — notification failures must never break the underlying action
+  }
+}
 
 export interface SeriesActionState {
   error?: string;
@@ -31,9 +60,12 @@ export async function addSeriesAction(
             genres,
             year,
             image_url,
-            created_by
+            created_by,
+            total_seasons,
+            total_episodes,
+            episode_runtime_minutes
           )
-          VALUES ($1, $2, $3, $4, $5, $6)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
           RETURNING id
         `,
         [
@@ -43,6 +75,9 @@ export async function addSeriesAction(
           data.year,
           data.image_url ?? undefined,
           user.id,
+          data.totalSeasons ?? undefined,
+          data.totalEpisodes ?? undefined,
+          data.episodeRuntimeMinutes ?? undefined,
         ],
       );
 
@@ -53,9 +88,10 @@ export async function addSeriesAction(
             user_id,
             status,
             rating,
-            comment
+            comment,
+            watched_at
           )
-          VALUES ($1, $2, $3, $4, $5)
+          VALUES ($1, $2, $3, $4, $5, $6)
         `,
         [
           newSeries.rows[0].id,
@@ -63,9 +99,17 @@ export async function addSeriesAction(
           data.status,
           data.status === 'watched' ? (data.rating ?? undefined) : undefined,
           data.status === 'watched' ? (data.comment ?? undefined) : undefined,
+          data.status === 'watched' ? new Date() : undefined,
         ],
       );
     });
+
+    await notifyFamilyOfEvent(
+      user.id,
+      familyId,
+      'Новый сериал в списке',
+      `${user.displayName ?? user.email} добавил(а) «${data.title}»`,
+    );
 
     return { success: true };
   } catch (error) {
@@ -110,6 +154,9 @@ export async function markWatchedAction(
   }
 
   try {
+    let familyId: string | undefined;
+    let seriesTitle = '';
+
     await withUserContext(user.id, async (client) => {
       await client.query(
         `
@@ -118,17 +165,37 @@ export async function markWatchedAction(
             user_id,
             status,
             rating,
-            comment
+            comment,
+            watched_at
           )
-          VALUES ($1, $2, 'watched', $3, $4)
+          VALUES ($1, $2, 'watched', $3, $4, NOW())
           ON CONFLICT (series_id, user_id) DO UPDATE
           SET status = EXCLUDED.status,
               rating = EXCLUDED.rating,
-              comment = EXCLUDED.comment
+              comment = EXCLUDED.comment,
+              watched_at = COALESCE(family_series_status.watched_at, NOW())
         `,
         [id, user.id, rating, comment || undefined],
       );
+
+      const seriesResult = await client.query<{
+        family_id: string;
+        title: string;
+      }>('SELECT family_id, title FROM public.family_series WHERE id = $1', [
+        id,
+      ]);
+      familyId = seriesResult.rows[0]?.family_id;
+      seriesTitle = seriesResult.rows[0]?.title ?? '';
     });
+
+    if (familyId) {
+      await notifyFamilyOfEvent(
+        user.id,
+        familyId,
+        'Отметили сериал',
+        `${user.displayName ?? user.email} посмотрел(а) «${seriesTitle}»`,
+      );
+    }
 
     return { success: true };
   } catch (error) {
@@ -154,7 +221,8 @@ export async function moveToWatchListAction(
           UPDATE public.family_series_status
           SET status = 'to-watch',
               rating = NULL,
-              comment = NULL
+              comment = NULL,
+              watched_at = NULL
           WHERE series_id = $1
             AND user_id = $2
         `,
@@ -186,7 +254,10 @@ export async function editAction(
         updates.title !== undefined ||
         updates.genres !== undefined ||
         updates.year !== undefined ||
-        updates.image_url !== undefined
+        updates.image_url !== undefined ||
+        updates.totalSeasons !== undefined ||
+        updates.totalEpisodes !== undefined ||
+        updates.episodeRuntimeMinutes !== undefined
       ) {
         await client.query(
           `
@@ -197,7 +268,10 @@ export async function editAction(
                 image_url = CASE
                   WHEN $5::text IS NULL THEN image_url
                   ELSE $5
-                END
+                END,
+                total_seasons = COALESCE($6, total_seasons),
+                total_episodes = COALESCE($7, total_episodes),
+                episode_runtime_minutes = COALESCE($8, episode_runtime_minutes)
             WHERE id = $1
           `,
           [
@@ -206,6 +280,9 @@ export async function editAction(
             updates.genres ?? undefined,
             updates.year ?? undefined,
             updates.image_url === undefined ? undefined : updates.image_url,
+            updates.totalSeasons ?? undefined,
+            updates.totalEpisodes ?? undefined,
+            updates.episodeRuntimeMinutes ?? undefined,
           ],
         );
       }

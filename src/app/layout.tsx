@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next';
 
 import { Geist, Geist_Mono } from 'next/font/google';
 
+import { ServiceWorkerRegister, ThemeApplier } from '@/shared/ui';
 import { Toaster } from '@/shared/ui/lib/Sonner';
 
 import '@/shared/styles/globals.css';
@@ -44,9 +45,25 @@ const RootLayout = ({
 }>) => {
   return (
     <html suppressHydrationWarning lang='ru'>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try {
+  var raw = localStorage.getItem('co-visionnage-ui-preferences');
+  var theme = raw ? JSON.parse(raw).theme : null;
+  document.documentElement.dataset.theme =
+    theme === 'minimal' || theme === 'dark' ? theme : 'brutal';
+} catch (error) {
+  document.documentElement.dataset.theme = 'brutal';
+}`,
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} brutal-font antialiased`}
       >
+        <ThemeApplier />
+        <ServiceWorkerRegister />
         {children}
         <Toaster />
       </body>
