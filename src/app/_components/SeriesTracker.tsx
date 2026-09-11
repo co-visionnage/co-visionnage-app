@@ -6,6 +6,10 @@ import confetti from 'canvas-confetti';
 
 import { FamilyMembersDialog } from '@/app/_components/FamilyMembersDialog';
 import { AddSeriesDialog } from '@/features/add-series';
+import { FamilyStatsDialog } from '@/features/family-stats';
+import { RecommendationsSection } from '@/features/recommendations';
+import { WatchHistoryDialog } from '@/features/watch-history';
+import { WatchPollDialog } from '@/features/watch-poll';
 import {
   addSeriesAction as addSeries,
   deleteAction as deleteSeries,
@@ -262,7 +266,15 @@ const SeriesTracker = ({
             currentUserRole={currentUserRole}
             familyId={family.id}
           />
+          <FamilyStatsDialog familyId={family.id} />
+          <WatchHistoryDialog familyId={family.id} />
+          <WatchPollDialog
+            familyId={family.id}
+            toWatchSeries={series.filter((item) => item.status === 'to-watch')}
+          />
         </div>
+
+        <RecommendationsSection familyId={family.id} />
 
         <SeriesFilters
           allGenres={allGenres}

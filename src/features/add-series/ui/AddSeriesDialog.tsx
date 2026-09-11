@@ -1,8 +1,11 @@
 'use client';
 
+import type { ImportedSeries } from '@/shared/lib/importSeries/types';
+
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 
+import { ImportSeriesSearch } from '@/features/import-series';
 import { uploadSeriesImage } from '@/shared/api/storage/client';
 import { useAppSounds } from '@/shared/hooks';
 import { SeriesData, SeriesStatus } from '@/shared/types';
@@ -43,7 +46,22 @@ export const AddSeriesDialog = ({ onAdd }: AddSeriesDialogProperties) => {
     status: 'to-watch' as SeriesStatus,
     title: '',
     year: new Date().getFullYear(),
+    totalSeasons: undefined as number | undefined,
+    totalEpisodes: undefined as number | undefined,
   });
+
+  const handleImportSelect = (imported: ImportedSeries) => {
+    setNewSeries((previous) => ({
+      ...previous,
+      title: imported.title,
+      year: imported.year,
+      image_url: imported.image_url,
+      imageFile: undefined,
+      totalSeasons: imported.totalSeasons,
+      totalEpisodes: imported.totalEpisodes,
+    }));
+    setGenreInput(imported.genres.join(', '));
+  };
 
   const handleFileChange = (file: File | undefined) => {
     setNewSeries((previous) => ({
@@ -82,6 +100,8 @@ export const AddSeriesDialog = ({ onAdd }: AddSeriesDialogProperties) => {
         rating: newSeries.status === 'watched' ? newSeries.rating : undefined,
         comment:
           newSeries.status === 'watched' ? newSeries.comment.trim() : undefined,
+        totalSeasons: newSeries.totalSeasons,
+        totalEpisodes: newSeries.totalEpisodes,
       });
 
       setNewSeries({
@@ -92,6 +112,8 @@ export const AddSeriesDialog = ({ onAdd }: AddSeriesDialogProperties) => {
         status: 'to-watch',
         title: '',
         year: new Date().getFullYear(),
+        totalSeasons: undefined,
+        totalEpisodes: undefined,
       });
       setGenreInput('');
       setIsOpen(false);
@@ -130,6 +152,8 @@ export const AddSeriesDialog = ({ onAdd }: AddSeriesDialogProperties) => {
         </DialogHeader>
 
         <div className='grid gap-4 py-4'>
+          <ImportSeriesSearch onSelect={handleImportSelect} />
+
           <div className='rotate-1 transform border-2 border-black bg-lime-400 p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'>
             <Label className='brutal-font font-bold text-black' htmlFor='title'>
               НАЗВАНИЕ

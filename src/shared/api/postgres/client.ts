@@ -1,4 +1,17 @@
-import { AuthMode, FamilyMember, SeriesStatus } from '@/shared/types';
+import type { ImportedSeries } from '@/shared/lib/importSeries/types';
+
+import {
+  AuthMode,
+  FamilyMember,
+  FamilyStats,
+  Recommendation,
+  SeriesComment,
+  SeriesProgress,
+  SeriesReaction,
+  SeriesStatus,
+  WatchHistoryEntry,
+  WatchPoll,
+} from '@/shared/types';
 
 type LoginPayload = {
   mode?: AuthMode;
@@ -84,6 +97,64 @@ export function createClient() {
       });
 
       return readJson<{ success: true }>(response);
+    },
+    async getSeriesComments(seriesId: string) {
+      const response = await fetch(`/api/series/${seriesId}/comments`, {
+        cache: 'no-store',
+      });
+
+      return readJson<{ comments: SeriesComment[] }>(response);
+    },
+    async getSeriesReactions(seriesId: string) {
+      const response = await fetch(`/api/series/${seriesId}/reactions`, {
+        cache: 'no-store',
+      });
+
+      return readJson<{ reactions: SeriesReaction[] }>(response);
+    },
+    async getSeriesProgress(seriesId: string) {
+      const response = await fetch(`/api/series/${seriesId}/progress`, {
+        cache: 'no-store',
+      });
+
+      return readJson<{ progress: SeriesProgress[] }>(response);
+    },
+    async getFamilyStats(familyId: string) {
+      const response = await fetch(`/api/family/stats?familyId=${familyId}`, {
+        cache: 'no-store',
+      });
+
+      return readJson<{ stats: FamilyStats }>(response);
+    },
+    async getRecommendations(familyId: string) {
+      const response = await fetch(
+        `/api/family/recommendations?familyId=${familyId}`,
+        { cache: 'no-store' },
+      );
+
+      return readJson<{ recommendations: Recommendation[] }>(response);
+    },
+    async getWatchHistory(familyId: string) {
+      const response = await fetch(`/api/family/history?familyId=${familyId}`, {
+        cache: 'no-store',
+      });
+
+      return readJson<{ history: WatchHistoryEntry[] }>(response);
+    },
+    async searchImport(query: string) {
+      const response = await fetch(
+        `/api/import/search?query=${encodeURIComponent(query)}`,
+        { cache: 'no-store' },
+      );
+
+      return readJson<{ results: ImportedSeries[] }>(response);
+    },
+    async getFamilyWatchPolls(familyId: string) {
+      const response = await fetch(`/api/family/polls?familyId=${familyId}`, {
+        cache: 'no-store',
+      });
+
+      return readJson<{ polls: WatchPoll[] }>(response);
     },
   };
 }

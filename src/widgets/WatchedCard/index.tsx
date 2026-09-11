@@ -1,6 +1,8 @@
-import { RotateCcw, SquarePen } from 'lucide-react';
+import { Link2, RotateCcw, SquarePen } from 'lucide-react';
+import NextLink from 'next/link';
 
 import { SeriesCard } from '@/entities/series';
+import { SeriesDiscussionDialog } from '@/features/discuss-series';
 import { EditSeriesDialog } from '@/features/edit-series';
 import { useAppSounds } from '@/shared/hooks';
 import { Series, SeriesData } from '@/shared/types';
@@ -26,21 +28,33 @@ export const WatchedCard = ({
   return (
     <SeriesCard
       actions={
-        <EditSeriesDialog
-          includeRating
-          series={series}
-          trigger={
+        <>
+          <NextLink href={`/series/${series.id}`}>
             <Button
-              className='h-8 w-8 rounded-none border-2 border-black bg-yellow-400 p-0 text-black hover:bg-yellow-500'
+              className='h-8 w-8 rounded-none border-2 border-black bg-cyan-300 p-0 text-black hover:bg-cyan-400'
               size='sm'
               variant='ghost'
               onClick={() => playClick()}
             >
-              <SquarePen className='h-4 w-4' />
+              <Link2 className='h-4 w-4' />
             </Button>
-          }
-          onSave={onEdit}
-        />
+          </NextLink>
+          <EditSeriesDialog
+            includeRating
+            series={series}
+            trigger={
+              <Button
+                className='h-8 w-8 rounded-none border-2 border-black bg-yellow-400 p-0 text-black hover:bg-yellow-500'
+                size='sm'
+                variant='ghost'
+                onClick={() => playClick()}
+              >
+                <SquarePen className='h-4 w-4' />
+              </Button>
+            }
+            onSave={onEdit}
+          />
+        </>
       }
       footer={
         <Button
@@ -88,6 +102,11 @@ export const WatchedCard = ({
             </div>
           </div>
         )}
+
+        <SeriesDiscussionDialog
+          seriesId={series.id}
+          seriesTitle={series.title}
+        />
       </div>
     </SeriesCard>
   );

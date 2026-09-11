@@ -4,9 +4,10 @@ import { Github, LogOut, Mail, Settings2, UserPlus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 
+import { PushNotificationToggle } from '@/features/push-notifications';
 import { createClient } from '@/shared/api/postgres/client';
 import { useAppSounds, useUiPreferences } from '@/shared/hooks';
-import { AuthMode } from '@/shared/types';
+import { AppTheme, AuthMode } from '@/shared/types';
 import {
   Button,
   Checkbox,
@@ -22,6 +23,12 @@ interface HeaderProperties {
   userEmail?: string;
 }
 
+const THEME_OPTIONS: { value: AppTheme; label: string }[] = [
+  { value: 'brutal', label: 'Брутализм' },
+  { value: 'minimal', label: 'Минимализм' },
+  { value: 'dark', label: 'Тёмная' },
+];
+
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const hasLetterPattern = /[A-Za-zА-Яа-яЁё]/;
 const hasDigitPattern = /\d/;
@@ -32,7 +39,7 @@ export const SeriesHeader = ({
   userEmail,
 }: HeaderProperties) => {
   const { playClick } = useAppSounds();
-  const { preferences, setConfettiEnabled, setSoundsEnabled } =
+  const { preferences, setConfettiEnabled, setSoundsEnabled, setTheme } =
     useUiPreferences();
   const client = useMemo(() => createClient(), []);
 
@@ -185,6 +192,33 @@ export const SeriesHeader = ({
                 </DialogHeader>
 
                 <div className='grid gap-4'>
+                  <div className='border-4 border-black bg-white p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'>
+                    <span className='mb-3 block font-black text-black'>
+                      Тема оформления
+                    </span>
+                    <div className='grid grid-cols-3 gap-2'>
+                      {THEME_OPTIONS.map((option) => (
+                        <button
+                          key={option.value}
+                          className={`border-2 border-black p-2 text-xs font-black uppercase transition-all ${
+                            preferences.theme === option.value
+                              ? 'bg-lime-400 text-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]'
+                              : 'bg-white text-black hover:bg-gray-100'
+                          }`}
+                          type='button'
+                          onClick={() => {
+                            playClick();
+                            setTheme(option.value);
+                          }}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <PushNotificationToggle />
+
                   <label className='flex items-center justify-between gap-4 border-4 border-black bg-white p-4 font-black text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'>
                     <span>Звуки интерфейса</span>
                     <Checkbox
