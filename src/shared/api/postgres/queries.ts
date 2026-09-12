@@ -4,6 +4,7 @@ import {
   Achievement,
   AchievementId,
   FamilyAchievements,
+  FamilyActivityEntry,
   FamilyMember,
   FamilyRole,
   FamilyStats,
@@ -987,6 +988,43 @@ export async function getFamilyWatchPolls(familyId: string) {
               votedByMe: option.voted_by_me,
             }),
           ),
+      }),
+    );
+  });
+}
+
+type FamilyActivityRow = {
+  id: string;
+  actor_label: string;
+  action: FamilyActivityEntry['action'];
+  target_label: string | null;
+  detail: string | null;
+  created_at: string;
+};
+
+export async function getFamilyActivityLog(familyId: string) {
+  const user = await requireCurrentUser();
+
+  return withUserContext(user.id, async (client) => {
+    const result = await client.query<FamilyActivityRow>(
+      `
+        SELECT id, actor_label, action, target_label, detail, created_at
+        FROM public.family_activity_log
+        WHERE family_id = $1
+        ORDER BY created_at DESC
+        LIMIT 100
+      `,
+      [familyId],
+    );
+
+    return result.rows.map(
+      (row): FamilyActivityEntry => ({
+        id: row.id,
+        actorLabel: row.actor_label,
+        action: row.action,
+        targetLabel: row.target_label ?? undefined,
+        detail: row.detail ?? undefined,
+        createdAt: row.created_at,
       }),
     );
   });

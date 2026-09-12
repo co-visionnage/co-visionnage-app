@@ -6,6 +6,7 @@ import {
   requireCurrentUser,
   withUserContext,
 } from '@/shared/api/postgres/server';
+import { logFamilyActivity } from '@/shared/lib/activityLog';
 
 export type FamilyActionState = {
   error?: string;
@@ -96,6 +97,13 @@ export async function joinFamily(
         [family.family_id, user.id],
       );
 
+      await logFamilyActivity(client, {
+        familyId: family.family_id,
+        actorId: user.id,
+        actorLabel: user.displayName ?? user.email,
+        action: 'member_joined',
+      });
+
       return { success: true } as FamilyActionState;
     });
 
@@ -158,6 +166,23 @@ export async function setMemberRoleAction(
         `,
         [familyId, memberUserId, role],
       );
+
+      const targetResult = await client.query<{
+        display_name: string | null;
+        email: string;
+      }>('SELECT display_name, email FROM public.profiles WHERE id = $1', [
+        memberUserId,
+      ]);
+      const target = targetResult.rows[0];
+
+      await logFamilyActivity(client, {
+        familyId,
+        actorId: user.id,
+        actorLabel: user.displayName ?? user.email,
+        action: 'role_changed',
+        targetLabel: target ? (target.display_name ?? target.email) : undefined,
+        detail: role,
+      });
     });
   } catch (error) {
     return {
@@ -184,6 +209,22 @@ export async function transferFamilyOwnershipAction(
         familyId,
         newOwnerUserId,
       ]);
+
+      const targetResult = await client.query<{
+        display_name: string | null;
+        email: string;
+      }>('SELECT display_name, email FROM public.profiles WHERE id = $1', [
+        newOwnerUserId,
+      ]);
+      const target = targetResult.rows[0];
+
+      await logFamilyActivity(client, {
+        familyId,
+        actorId: user.id,
+        actorLabel: user.displayName ?? user.email,
+        action: 'ownership_transferred',
+        targetLabel: target ? (target.display_name ?? target.email) : undefined,
+      });
     });
   } catch (error) {
     return {
