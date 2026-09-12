@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { useMemo } from 'react';
 
 const colors = [
@@ -23,7 +24,15 @@ export const SeriesPoster = ({
   const hasValidImage = src && src.trim() !== '';
 
   if (hasValidImage) {
-    return <img alt={title} className='h-full w-full object-cover' src={src} />;
+    return (
+      <Image
+        fill
+        alt={title}
+        className='object-cover'
+        sizes='(min-width: 768px) 33vw, 100vw'
+        src={src}
+      />
+    );
   }
 
   return (
