@@ -1,3 +1,4 @@
+export { DeleteAccountButton } from './account-deletion';
 export { AddSeriesDialog } from './add-series';
 export { AchievementsDialog } from './achievements';
 export { SeriesDiscussionDialog } from './discuss-series';
@@ -9,3 +10,4 @@ export { RecommendationsSection } from './recommendations';
 export { EpisodeProgressControl } from './track-progress';
 export { WatchHistoryDialog } from './watch-history';
 export { WatchPollDialog } from './watch-poll';
+export { YearWrappedDialog } from './year-wrapped';

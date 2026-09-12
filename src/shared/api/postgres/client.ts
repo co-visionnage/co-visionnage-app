@@ -12,6 +12,7 @@ import {
   SeriesStatus,
   WatchHistoryEntry,
   WatchPoll,
+  YearWrapped,
 } from '@/shared/types';
 
 type LoginPayload = {
@@ -134,6 +135,14 @@ export function createClient() {
       );
 
       return readJson<{ achievements: FamilyAchievements }>(response);
+    },
+    async getYearWrapped(familyId: string, year: number) {
+      const response = await fetch(
+        `/api/family/wrapped?familyId=${familyId}&year=${year}`,
+        { cache: 'no-store' },
+      );
+
+      return readJson<{ wrapped: YearWrapped }>(response);
     },
     async getRecommendations(familyId: string) {
       const response = await fetch(

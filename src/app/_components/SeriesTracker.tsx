@@ -11,6 +11,7 @@ import { FamilyStatsDialog } from '@/features/family-stats';
 import { RecommendationsSection } from '@/features/recommendations';
 import { WatchHistoryDialog } from '@/features/watch-history';
 import { WatchPollDialog } from '@/features/watch-poll';
+import { YearWrappedDialog } from '@/features/year-wrapped';
 import {
   addSeriesAction as addSeries,
   deleteAction as deleteSeries,
@@ -274,6 +275,7 @@ const SeriesTracker = ({
             familyId={family.id}
             toWatchSeries={series.filter((item) => item.status === 'to-watch')}
           />
+          <YearWrappedDialog familyId={family.id} familyName={family.name} />
         </div>
 
         <RecommendationsSection familyId={family.id} />
