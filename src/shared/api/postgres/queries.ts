@@ -4,6 +4,7 @@ import {
   Achievement,
   AchievementId,
   FamilyAchievements,
+  FamilyActivityEntry,
   FamilyMember,
   FamilyRole,
   FamilyStats,
@@ -215,11 +216,11 @@ export async function getFamilySeries(familyId: string) {
   );
 }
 
-export async function getHomePageData() {
+export async function getHomePageData(preferredFamilyId?: string) {
   const user = await requireCurrentUser();
 
   return withUserContext(user.id, async (client) => {
-    const membershipResult = await client.query<FamilyMembershipRow>(
+    const membershipsResult = await client.query<FamilyMembershipRow>(
       `
         SELECT
           member.role,
@@ -230,34 +231,39 @@ export async function getHomePageData() {
         JOIN public.families family ON family.id = member.family_id
         WHERE member.user_id = $1
         ORDER BY member.joined_at ASC
-        LIMIT 1
       `,
       [user.id],
     );
 
-    const membership = membershipResult.rows[0];
+    const memberships = membershipsResult.rows.map((row) => ({
+      role: row.role,
+      family: {
+        id: row.family_id,
+        name: row.family_name,
+        invite_code: row.invite_code,
+      },
+    }));
 
-    if (!membership) {
+    if (memberships.length === 0) {
       return {
         user,
+        memberships,
         membership: undefined,
         series: [],
       };
     }
 
+    const membership =
+      memberships.find((entry) => entry.family.id === preferredFamilyId) ??
+      memberships[0];
+
     return {
       user,
-      membership: {
-        role: membership.role,
-        family: {
-          id: membership.family_id,
-          name: membership.family_name,
-          invite_code: membership.invite_code,
-        },
-      },
+      memberships,
+      membership,
       series: await getFamilySeriesWithClient(
         client,
-        membership.family_id,
+        membership.family.id,
         user.id,
       ),
     };
@@ -1076,5 +1082,42 @@ export async function getFamilyWatchEvents(familyId: string) {
         ),
       };
     });
+  });
+}
+
+type FamilyActivityRow = {
+  id: string;
+  actor_label: string;
+  action: FamilyActivityEntry['action'];
+  target_label: string | null;
+  detail: string | null;
+  created_at: string;
+};
+
+export async function getFamilyActivityLog(familyId: string) {
+  const user = await requireCurrentUser();
+
+  return withUserContext(user.id, async (client) => {
+    const result = await client.query<FamilyActivityRow>(
+      `
+        SELECT id, actor_label, action, target_label, detail, created_at
+        FROM public.family_activity_log
+        WHERE family_id = $1
+        ORDER BY created_at DESC
+        LIMIT 100
+      `,
+      [familyId],
+    );
+
+    return result.rows.map(
+      (row): FamilyActivityEntry => ({
+        id: row.id,
+        actorLabel: row.actor_label,
+        action: row.action,
+        targetLabel: row.target_label ?? undefined,
+        detail: row.detail ?? undefined,
+        createdAt: row.created_at,
+      }),
+    );
   });
 }

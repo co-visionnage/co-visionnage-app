@@ -1,5 +1,6 @@
 import { getHomePageData } from '@/shared/api/postgres/queries';
 import { getCurrentUser } from '@/shared/api/postgres/server';
+import { getActiveFamilyIdCookie } from '@/shared/lib/activeFamily';
 import { SeriesStatus } from '@/shared/types';
 import { SeriesHeader } from '@/shared/ui';
 import ClientTrackerWrapper from './_components/ClientTrackerWrapper';
@@ -23,7 +24,9 @@ export default async function HomePage() {
     );
   }
 
-  const { membership, series } = await getHomePageData();
+  const preferredFamilyId = await getActiveFamilyIdCookie();
+  const { membership, memberships, series } =
+    await getHomePageData(preferredFamilyId);
   const familyData = membership?.family;
 
   if (!familyData) {
@@ -56,6 +59,7 @@ export default async function HomePage() {
         ...item,
         status: item.status as SeriesStatus,
       }))}
+      memberships={memberships}
       userDisplayName={user.displayName ?? user.email}
       userEmail={user.email}
     />

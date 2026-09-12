@@ -3,8 +3,25 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ENV } from '@/shared/config/environment';
 import { searchKinopoisk } from '@/shared/lib/importSeries/kinopoisk';
 import { searchOmdb } from '@/shared/lib/importSeries/omdb';
+import { checkRateLimit, getClientIp } from '@/shared/lib/rateLimit';
+
+const RATE_LIMIT_MAX_ATTEMPTS = 20;
+const RATE_LIMIT_WINDOW_SECONDS = 10 * 60;
 
 export async function GET(request: NextRequest) {
+  const isWithinLimit = await checkRateLimit(
+    `import:ip:${getClientIp(request)}`,
+    RATE_LIMIT_MAX_ATTEMPTS,
+    RATE_LIMIT_WINDOW_SECONDS,
+  );
+
+  if (!isWithinLimit) {
+    return NextResponse.json(
+      { error: 'Слишком много запросов на импорт. Попробуйте позже.' },
+      { status: 429 },
+    );
+  }
+
   const query = request.nextUrl.searchParams.get('query')?.trim();
 
   if (!query) {

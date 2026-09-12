@@ -5,6 +5,7 @@ import {
   requireCurrentUser,
   withUserContext,
 } from '@/shared/api/postgres/server';
+import { logFamilyActivity } from '@/shared/lib/activityLog';
 import { notifyFamilyByEmail } from '@/shared/lib/email/notifyFamilyByEmail';
 import { notifyFamily } from '@/shared/lib/push/notifyFamily';
 import { SeriesData } from '@/shared/types';
@@ -110,6 +111,14 @@ export async function addSeriesAction(
           data.status === 'watched' ? new Date() : undefined,
         ],
       );
+
+      await logFamilyActivity(client, {
+        familyId,
+        actorId: user.id,
+        actorLabel: user.displayName ?? user.email,
+        action: 'series_added',
+        detail: data.title,
+      });
     });
 
     await notifyFamilyOfEvent(
@@ -137,9 +146,27 @@ export async function deleteAction(id: string): Promise<SeriesActionState> {
 
   try {
     await withUserContext(user.id, async (client) => {
+      const seriesResult = await client.query<{
+        family_id: string;
+        title: string;
+      }>('SELECT family_id, title FROM public.family_series WHERE id = $1', [
+        id,
+      ]);
+      const series = seriesResult.rows[0];
+
       await client.query('DELETE FROM public.family_series WHERE id = $1', [
         id,
       ]);
+
+      if (series) {
+        await logFamilyActivity(client, {
+          familyId: series.family_id,
+          actorId: user.id,
+          actorLabel: user.displayName ?? user.email,
+          action: 'series_removed',
+          detail: series.title,
+        });
+      }
     });
 
     return { success: true };

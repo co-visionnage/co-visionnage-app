@@ -1,4 +1,4 @@
-import { FamilyRole, Series } from '@/shared/types';
+import { FamilyMembership, FamilyRole, Series } from '@/shared/types';
 import SeriesTracker from './SeriesTracker';
 
 interface Properties {
@@ -11,6 +11,7 @@ interface Properties {
     name: string;
     invite_code: string;
   };
+  memberships: FamilyMembership[];
   initialSeries: Series[];
 }
 
@@ -20,6 +21,7 @@ export default function ClientTrackerWrapper({
   userDisplayName,
   userEmail,
   family,
+  memberships,
   initialSeries,
 }: Properties) {
   return (
@@ -28,6 +30,7 @@ export default function ClientTrackerWrapper({
       currentUserRole={currentUserRole}
       family={family}
       initialSeries={initialSeries}
+      memberships={memberships}
       userDisplayName={userDisplayName}
       userEmail={userEmail}
     />
