@@ -1,6 +1,6 @@
 'use client';
 
-import { MessageCircle, Trash2 } from 'lucide-react';
+import { Eye, MessageCircle, ShieldAlert, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
@@ -18,6 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  Input,
   Textarea,
 } from '@/shared/ui/lib';
 
@@ -26,6 +27,22 @@ const QUICK_EMOJIS = ['🔥', '❤️', '😂', '😱', '👎'];
 interface SeriesDiscussionDialogProperties {
   seriesId: string;
   seriesTitle: string;
+}
+
+function isAheadOfViewer(
+  comment: SeriesComment,
+  myProgress: { season: number; episode: number } | undefined,
+) {
+  if (comment.spoilerSeason === undefined) return false;
+  if (!myProgress) return true;
+
+  const commentEpisode = comment.spoilerEpisode ?? 0;
+
+  return (
+    comment.spoilerSeason > myProgress.season ||
+    (comment.spoilerSeason === myProgress.season &&
+      commentEpisode > myProgress.episode)
+  );
 }
 
 export const SeriesDiscussionDialog = ({
@@ -37,7 +54,15 @@ export const SeriesDiscussionDialog = ({
   const [isOpen, setIsOpen] = useState(false);
   const [comments, setComments] = useState<SeriesComment[]>([]);
   const [reactions, setReactions] = useState<SeriesReaction[]>([]);
+  const [myProgress, setMyProgress] = useState<
+    { season: number; episode: number } | undefined
+  >();
+  const [revealedCommentIds, setRevealedCommentIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [draft, setDraft] = useState('');
+  const [spoilerSeason, setSpoilerSeason] = useState('');
+  const [spoilerEpisode, setSpoilerEpisode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>();
@@ -47,12 +72,21 @@ export const SeriesDiscussionDialog = ({
     setError(undefined);
 
     try {
-      const [commentsResponse, reactionsResponse] = await Promise.all([
-        client.getSeriesComments(seriesId),
-        client.getSeriesReactions(seriesId),
-      ]);
+      const [commentsResponse, reactionsResponse, progressResponse] =
+        await Promise.all([
+          client.getSeriesComments(seriesId),
+          client.getSeriesReactions(seriesId),
+          client.getSeriesProgress(seriesId),
+        ]);
       setComments(commentsResponse.comments);
       setReactions(reactionsResponse.reactions);
+
+      const mine = progressResponse.progress.find((entry) => entry.isMine);
+      setMyProgress(
+        mine
+          ? { season: mine.currentSeason, episode: mine.currentEpisode }
+          : undefined,
+      );
     } catch (loadError) {
       setError(
         loadError instanceof Error
@@ -67,6 +101,8 @@ export const SeriesDiscussionDialog = ({
   useEffect(() => {
     if (isOpen) {
       void loadThread();
+    } else {
+      setRevealedCommentIds(new Set());
     }
   }, [isOpen, loadThread]);
 
@@ -74,16 +110,27 @@ export const SeriesDiscussionDialog = ({
     const trimmed = draft.trim();
     if (!trimmed) return;
 
+    const season = Number.parseInt(spoilerSeason, 10);
+    const episode = Number.parseInt(spoilerEpisode, 10);
+
     playClick();
     setIsSubmitting(true);
     setError(undefined);
 
-    const result = await addSeriesCommentAction(seriesId, trimmed);
+    const result = await addSeriesCommentAction(
+      seriesId,
+      trimmed,
+      Number.isFinite(season) && season > 0
+        ? { season, episode: Number.isFinite(episode) ? episode : undefined }
+        : undefined,
+    );
 
     if (result.error) {
       setError(result.error);
     } else {
       setDraft('');
+      setSpoilerSeason('');
+      setSpoilerEpisode('');
       await loadThread();
     }
 
@@ -110,6 +157,11 @@ export const SeriesDiscussionDialog = ({
     } else {
       await loadThread();
     }
+  };
+
+  const handleReveal = (commentId: string) => {
+    playClick();
+    setRevealedCommentIds((previous) => new Set(previous).add(commentId));
   };
 
   const reactionCount = reactions.reduce((sum, r) => sum + r.count, 0);
@@ -162,28 +214,54 @@ export const SeriesDiscussionDialog = ({
         ) : undefined}
 
         <div className='grid max-h-64 gap-2 overflow-y-auto'>
-          {comments.map((comment) => (
-            <div
-              key={comment.id}
-              className='border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
-            >
-              <div className='flex items-start justify-between gap-2'>
-                <p className='text-xs font-black text-gray-500 uppercase'>
-                  {comment.authorName}
-                </p>
-                {comment.isMine ? (
+          {comments.map((comment) => {
+            const isSpoiler = isAheadOfViewer(comment, myProgress);
+            const isRevealed = revealedCommentIds.has(comment.id);
+            const hideBody = isSpoiler && !isRevealed;
+
+            return (
+              <div
+                key={comment.id}
+                className='border-2 border-black bg-white p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
+              >
+                <div className='flex items-start justify-between gap-2'>
+                  <p className='text-xs font-black text-gray-500 uppercase'>
+                    {comment.authorName}
+                    {comment.spoilerSeason ? (
+                      <span className='ml-2 text-purple-600'>
+                        С{comment.spoilerSeason}
+                        {comment.spoilerEpisode
+                          ? `Э${comment.spoilerEpisode}`
+                          : ''}
+                      </span>
+                    ) : undefined}
+                  </p>
+                  {comment.isMine ? (
+                    <button
+                      className='text-red-600 hover:text-red-800'
+                      type='button'
+                      onClick={() => void handleDeleteComment(comment.id)}
+                    >
+                      <Trash2 className='h-3.5 w-3.5' />
+                    </button>
+                  ) : undefined}
+                </div>
+                {hideBody ? (
                   <button
-                    className='text-red-600 hover:text-red-800'
+                    className='mt-1 flex w-full items-center gap-2 border-2 border-dashed border-purple-500 bg-purple-50 p-2 text-left text-sm font-black text-purple-700 hover:bg-purple-100'
                     type='button'
-                    onClick={() => void handleDeleteComment(comment.id)}
+                    onClick={() => handleReveal(comment.id)}
                   >
-                    <Trash2 className='h-3.5 w-3.5' />
+                    <ShieldAlert className='h-4 w-4 shrink-0' />
+                    Спойлер — вы ещё не досмотрели до этой серии
+                    <Eye className='ml-auto h-4 w-4 shrink-0' />
                   </button>
-                ) : undefined}
+                ) : (
+                  <p className='font-bold text-black'>{comment.body}</p>
+                )}
               </div>
-              <p className='font-bold text-black'>{comment.body}</p>
-            </div>
-          ))}
+            );
+          })}
           {!isLoading && comments.length === 0 ? (
             <p className='font-bold text-black/60'>
               Пока никто ничего не написал.
@@ -198,6 +276,28 @@ export const SeriesDiscussionDialog = ({
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
           />
+          <div className='flex items-center gap-2'>
+            <ShieldAlert className='h-4 w-4 shrink-0 text-purple-600' />
+            <span className='text-xs font-bold text-black/60'>
+              Спойлер до серии (необязательно):
+            </span>
+            <Input
+              className='h-8 w-16 border-2 border-black bg-white text-center text-sm font-bold'
+              min={1}
+              placeholder='Сезон'
+              type='number'
+              value={spoilerSeason}
+              onChange={(event) => setSpoilerSeason(event.target.value)}
+            />
+            <Input
+              className='h-8 w-16 border-2 border-black bg-white text-center text-sm font-bold'
+              min={0}
+              placeholder='Серия'
+              type='number'
+              value={spoilerEpisode}
+              onChange={(event) => setSpoilerEpisode(event.target.value)}
+            />
+          </div>
           <Button
             className='border-2 border-black bg-lime-400 font-black text-black hover:bg-lime-500 disabled:cursor-not-allowed disabled:opacity-60'
             disabled={isSubmitting || draft.trim().length === 0}
