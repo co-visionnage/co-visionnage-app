@@ -9,4 +9,5 @@ export { RecommendationsSection } from './recommendations';
 export { EpisodeProgressControl } from './track-progress';
 export { WatchHistoryDialog } from './watch-history';
 export { WatchPollDialog } from './watch-poll';
+export { PickForMeDialog } from './pick-for-me';
 export { YearWrappedDialog } from './year-wrapped';
