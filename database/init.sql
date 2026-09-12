@@ -996,6 +996,13 @@ CREATE POLICY family_series_status_select_family
     )
   );
 
+-- =========================================================================
+-- 009: trailer link
+-- =========================================================================
+
+ALTER TABLE public.family_series
+  ADD COLUMN IF NOT EXISTS trailer_url text;
+
 GRANT USAGE ON SCHEMA public TO app_user;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO app_user;

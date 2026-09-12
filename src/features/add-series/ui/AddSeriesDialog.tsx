@@ -48,6 +48,7 @@ export const AddSeriesDialog = ({ onAdd }: AddSeriesDialogProperties) => {
     year: new Date().getFullYear(),
     totalSeasons: undefined as number | undefined,
     totalEpisodes: undefined as number | undefined,
+    trailerUrl: '',
   });
 
   const handleImportSelect = (imported: ImportedSeries) => {
@@ -102,6 +103,7 @@ export const AddSeriesDialog = ({ onAdd }: AddSeriesDialogProperties) => {
           newSeries.status === 'watched' ? newSeries.comment.trim() : undefined,
         totalSeasons: newSeries.totalSeasons,
         totalEpisodes: newSeries.totalEpisodes,
+        trailerUrl: newSeries.trailerUrl.trim() || undefined,
       });
 
       setNewSeries({
@@ -114,6 +116,7 @@ export const AddSeriesDialog = ({ onAdd }: AddSeriesDialogProperties) => {
         year: new Date().getFullYear(),
         totalSeasons: undefined,
         totalEpisodes: undefined,
+        trailerUrl: '',
       });
       setGenreInput('');
       setIsOpen(false);
@@ -259,6 +262,24 @@ export const AddSeriesDialog = ({ onAdd }: AddSeriesDialogProperties) => {
               </div>
             </>
           ) : undefined}
+
+          <div className='-rotate-1 transform border-2 border-black bg-red-300 p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'>
+            <Label
+              className='brutal-font font-bold text-black'
+              htmlFor='trailer'
+            >
+              ТРЕЙЛЕР (ССЫЛКА НА YOUTUBE)
+            </Label>
+            <Input
+              className='brutal-font border-2 border-black bg-white font-bold text-black'
+              id='trailer'
+              placeholder='https://youtube.com/watch?v=...'
+              value={newSeries.trailerUrl}
+              onChange={(event) =>
+                setNewSeries({ ...newSeries, trailerUrl: event.target.value })
+              }
+            />
+          </div>
 
           <div className='rotate-1 transform border-2 border-black bg-cyan-400 p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'>
             <Label className='brutal-font font-bold text-black'>

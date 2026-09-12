@@ -52,6 +52,7 @@ export const EditSeriesDialog = ({
     totalSeasons: series.totalSeasons,
     totalEpisodes: series.totalEpisodes,
     episodeRuntimeMinutes: series.episodeRuntimeMinutes,
+    trailerUrl: series.trailerUrl ?? '',
   });
 
   const handleSubmit = async () => {
@@ -219,6 +220,24 @@ export const EditSeriesDialog = ({
                 }
               />
             </div>
+          </div>
+
+          <div className='-rotate-1 border-2 border-black bg-red-300 p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'>
+            <Label
+              className='brutal-font font-black text-black'
+              htmlFor='edit-trailer'
+            >
+              ТРЕЙЛЕР (ССЫЛКА НА YOUTUBE)
+            </Label>
+            <Input
+              className='brutal-font border-2 border-black bg-white font-bold'
+              id='edit-trailer'
+              placeholder='https://youtube.com/watch?v=...'
+              value={editData.trailerUrl ?? ''}
+              onChange={(event) =>
+                setEditData({ ...editData, trailerUrl: event.target.value })
+              }
+            />
           </div>
 
           {includeRating ? (

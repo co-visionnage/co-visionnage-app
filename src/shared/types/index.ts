@@ -12,6 +12,7 @@ export interface Series {
   totalSeasons?: number;
   totalEpisodes?: number;
   episodeRuntimeMinutes?: number;
+  trailerUrl?: string;
 }
 
 export type SeriesData = {
@@ -25,6 +26,7 @@ export type SeriesData = {
   totalSeasons?: number;
   totalEpisodes?: number;
   episodeRuntimeMinutes?: number;
+  trailerUrl?: string;
 };
 
 export type SeriesStatus = 'watched' | 'to-watch';
