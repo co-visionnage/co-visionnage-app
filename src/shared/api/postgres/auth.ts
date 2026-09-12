@@ -60,7 +60,7 @@ function createPasswordHash(password: string) {
   return `${salt}:${derivedKey}`;
 }
 
-function verifyPassword(password: string, passwordHash: string) {
+export function verifyPassword(password: string, passwordHash: string) {
   const [salt, storedHash] = passwordHash.split(':');
 
   if (!salt || !storedHash) {
