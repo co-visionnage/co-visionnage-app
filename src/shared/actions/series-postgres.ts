@@ -63,9 +63,10 @@ export async function addSeriesAction(
             created_by,
             total_seasons,
             total_episodes,
-            episode_runtime_minutes
+            episode_runtime_minutes,
+            media_type
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
           RETURNING id
         `,
         [
@@ -78,6 +79,7 @@ export async function addSeriesAction(
           data.totalSeasons ?? undefined,
           data.totalEpisodes ?? undefined,
           data.episodeRuntimeMinutes ?? undefined,
+          data.mediaType,
         ],
       );
 
