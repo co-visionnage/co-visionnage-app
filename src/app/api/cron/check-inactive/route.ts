@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
       title,
       body,
       url: `/series/${entry.series_id}`,
-    }).catch(() => {});
+    });
 
     const email = await query<{ get_user_email_system: string | null }>(
       'SELECT public.get_user_email_system($1)',
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     );
     const userEmail = email.rows[0]?.get_user_email_system;
     if (userEmail) {
-      await notifyFamilyByEmail([userEmail], title, body).catch(() => {});
+      await notifyFamilyByEmail([userEmail], title, body);
     }
 
     await query('SELECT public.mark_progress_reminded($1, $2)', [

@@ -38,7 +38,12 @@ export async function POST(request: NextRequest) {
     const fresh = await fetchCurrentSeasonInfo(
       series.external_source,
       series.external_id,
-    ).catch(() => {});
+    ).catch((error: unknown) => {
+      console.error(
+        `check-new-seasons: lookup failed for "${series.title}" (${series.external_source}:${series.external_id})`,
+        error,
+      );
+    });
 
     if (!fresh?.totalSeasons) continue;
     if (series.total_seasons && fresh.totalSeasons <= series.total_seasons) {
@@ -54,11 +59,11 @@ export async function POST(request: NextRequest) {
     const title = 'Вышел новый сезон!';
     const body = `У «${series.title}» теперь ${fresh.totalSeasons} сезон(ов)`;
 
-    await notifyFamilySystem(
-      { query },
-      series.family_id,
-      { title, body, url: '/' },
-    ).catch(() => {});
+    await notifyFamilySystem({ query }, series.family_id, {
+      title,
+      body,
+      url: '/',
+    });
 
     const emails = await query<{ email: string }>(
       'SELECT * FROM public.get_family_member_emails_system($1)',
@@ -68,7 +73,7 @@ export async function POST(request: NextRequest) {
       emails.rows.map((row) => row.email),
       title,
       body,
-    ).catch(() => {});
+    );
 
     results.push({ title: series.title, newTotalSeasons: fresh.totalSeasons });
   }

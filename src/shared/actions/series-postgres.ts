@@ -31,8 +31,13 @@ async function notifyFamilyOfEvent(
       );
       await notifyFamilyByEmail(emails, title, body);
     });
-  } catch {
-    // best-effort — notification failures must never break the underlying action
+  } catch (error) {
+    // best-effort — notification failures must never break the underlying
+    // action, but a silent failure here is invisible without this log
+    console.error(
+      `notifyFamilyOfEvent: failed to notify family ${familyId} ("${title}")`,
+      error,
+    );
   }
 }
 
