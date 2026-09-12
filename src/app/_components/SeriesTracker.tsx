@@ -10,6 +10,7 @@ import { ActivityLogDialog } from '@/features/activity-log';
 import { AddSeriesDialog } from '@/features/add-series';
 import { BulkImportDialog } from '@/features/bulk-import';
 import { FamilyStatsDialog } from '@/features/family-stats';
+import { FamilySwitcherDialog } from '@/features/family-switcher';
 import { PickForMeDialog } from '@/features/pick-for-me';
 import { RecommendationsSection } from '@/features/recommendations';
 import { WatchHistoryDialog } from '@/features/watch-history';
@@ -24,7 +25,12 @@ import {
 } from '@/shared/actions/series-postgres';
 import { createClient } from '@/shared/api/postgres/client';
 import { useAppSounds, useDebounce, useUiPreferences } from '@/shared/hooks';
-import { FamilyRole, Series, SeriesData } from '@/shared/types';
+import {
+  FamilyMembership,
+  FamilyRole,
+  Series,
+  SeriesData,
+} from '@/shared/types';
 import {
   EmptyState,
   SeriesCardSkeleton,
@@ -44,6 +50,7 @@ interface SeriesTrackerProperties {
     name: string;
     invite_code: string;
   };
+  memberships: FamilyMembership[];
   initialSeries: Series[];
 }
 
@@ -53,6 +60,7 @@ const SeriesTracker = ({
   userDisplayName,
   userEmail,
   family,
+  memberships,
   initialSeries,
 }: SeriesTrackerProperties) => {
   const client = useMemo(() => createClient(), []);
@@ -250,6 +258,10 @@ const SeriesTracker = ({
               Семья: {family.name}
             </span>
           </div>
+          <FamilySwitcherDialog
+            activeFamilyId={family.id}
+            memberships={memberships}
+          />
           <button
             className='flex rotate-1 items-center gap-3 border-4 border-black bg-white p-3 text-left shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:-translate-y-0.5 hover:bg-lime-200'
             type='button'
