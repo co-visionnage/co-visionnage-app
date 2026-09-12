@@ -57,6 +57,8 @@ export type SeriesComment = {
   body: string;
   createdAt: string;
   isMine: boolean;
+  spoilerSeason?: number;
+  spoilerEpisode?: number;
 };
 
 export type SeriesReaction = {

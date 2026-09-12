@@ -15,6 +15,7 @@ export type CommentActionState = {
 export async function addSeriesCommentAction(
   seriesId: string,
   body: string,
+  spoiler?: { season: number; episode?: number },
 ): Promise<CommentActionState> {
   const user = await requireCurrentUser().catch(() => {});
   const trimmedBody = body.trim();
@@ -29,10 +30,16 @@ export async function addSeriesCommentAction(
     await withUserContext(user.id, async (client) => {
       await client.query(
         `
-          INSERT INTO public.family_series_comments (series_id, user_id, body)
-          VALUES ($1, $2, $3)
+          INSERT INTO public.family_series_comments (series_id, user_id, body, spoiler_season, spoiler_episode)
+          VALUES ($1, $2, $3, $4, $5)
         `,
-        [seriesId, user.id, trimmedBody],
+        [
+          seriesId,
+          user.id,
+          trimmedBody,
+          spoiler?.season ?? undefined,
+          spoiler?.episode ?? undefined,
+        ],
       );
     });
   } catch (error) {

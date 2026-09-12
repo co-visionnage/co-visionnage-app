@@ -336,6 +336,8 @@ type SeriesCommentRow = {
   email: string;
   body: string;
   created_at: string;
+  spoiler_season: number | null;
+  spoiler_episode: number | null;
 };
 
 export async function getSeriesComments(seriesId: string) {
@@ -351,7 +353,9 @@ export async function getSeriesComments(seriesId: string) {
           profile.display_name,
           profile.email,
           comment.body,
-          comment.created_at
+          comment.created_at,
+          comment.spoiler_season,
+          comment.spoiler_episode
         FROM public.family_series_comments AS comment
         JOIN public.profiles AS profile ON profile.id = comment.user_id
         WHERE comment.series_id = $1
@@ -369,6 +373,8 @@ export async function getSeriesComments(seriesId: string) {
         body: row.body,
         createdAt: row.created_at,
         isMine: row.user_id === user.id,
+        spoilerSeason: row.spoiler_season ?? undefined,
+        spoilerEpisode: row.spoiler_episode ?? undefined,
       }),
     );
   });

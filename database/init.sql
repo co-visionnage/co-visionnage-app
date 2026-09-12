@@ -1185,9 +1185,9 @@ CREATE OR REPLACE FUNCTION public.delete_own_profile(p_user_id uuid)
 RETURNS void
 LANGUAGE sql
 SECURITY DEFINER
-AS $
+AS $$
   DELETE FROM public.profiles WHERE id = p_user_id;
-$;
+$$;
 
 -- =========================================================================
 -- 013: trailer link
@@ -1195,6 +1195,26 @@ $;
 
 ALTER TABLE public.family_series
   ADD COLUMN IF NOT EXISTS trailer_url text;
+
+-- =========================================================================
+-- 014: optional spoiler tag on series comments
+--
+-- A comment can optionally declare which season/episode it discusses;
+-- family_series_progress already tracks each viewer's own current
+-- season/episode, so the client can hide/blur comments tagged further
+-- ahead than the viewer has gotten. episode is only meaningful alongside
+-- season, hence the CHECK.
+-- =========================================================================
+
+ALTER TABLE public.family_series_comments
+  ADD COLUMN IF NOT EXISTS spoiler_season integer CHECK (spoiler_season IS NULL OR spoiler_season > 0),
+  ADD COLUMN IF NOT EXISTS spoiler_episode integer CHECK (spoiler_episode IS NULL OR spoiler_episode >= 0);
+
+ALTER TABLE public.family_series_comments
+  DROP CONSTRAINT IF EXISTS family_series_comments_spoiler_episode_requires_season;
+ALTER TABLE public.family_series_comments
+  ADD CONSTRAINT family_series_comments_spoiler_episode_requires_season
+    CHECK (spoiler_episode IS NULL OR spoiler_season IS NOT NULL);
 
 GRANT USAGE ON SCHEMA public TO app_user;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user;
