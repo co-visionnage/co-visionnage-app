@@ -6,6 +6,7 @@ import {
   FamilyStats,
   FamilyStatsGenre,
   FamilyStatsMonth,
+  MediaType,
   Recommendation,
   SeriesComment,
   SeriesProgress,
@@ -45,6 +46,7 @@ type SeriesRow = {
   total_seasons: number | null;
   total_episodes: number | null;
   episode_runtime_minutes: number | null;
+  media_type: MediaType;
 };
 
 export async function getCurrentMembership() {
@@ -99,6 +101,7 @@ async function getFamilySeriesWithClient(
         series.total_seasons,
         series.total_episodes,
         series.episode_runtime_minutes,
+        series.media_type,
         status.status,
         status.rating,
         status.comment
@@ -124,6 +127,7 @@ async function getFamilySeriesWithClient(
     totalSeasons: row.total_seasons ?? undefined,
     totalEpisodes: row.total_episodes ?? undefined,
     episodeRuntimeMinutes: row.episode_runtime_minutes ?? undefined,
+    mediaType: row.media_type,
   }));
 }
 
@@ -144,6 +148,7 @@ export async function getSeriesById(seriesId: string) {
           series.total_seasons,
           series.total_episodes,
           series.episode_runtime_minutes,
+          series.media_type,
           status.status,
           status.rating,
           status.comment
@@ -174,6 +179,7 @@ export async function getSeriesById(seriesId: string) {
         totalSeasons: row.total_seasons ?? undefined,
         totalEpisodes: row.total_episodes ?? undefined,
         episodeRuntimeMinutes: row.episode_runtime_minutes ?? undefined,
+        mediaType: row.media_type,
       },
     };
   });

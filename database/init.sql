@@ -996,6 +996,18 @@ CREATE POLICY family_series_status_select_family
     )
   );
 
+-- =========================================================================
+-- 009: distinguish series vs. movies
+--
+-- Movies don't have seasons/episodes, so total_seasons/total_episodes stay
+-- meaningless for them; the app hides the episode-progress UI for movies
+-- based on this column instead of inferring it from those fields.
+-- =========================================================================
+
+ALTER TABLE public.family_series
+  ADD COLUMN IF NOT EXISTS media_type varchar(10) NOT NULL DEFAULT 'series'
+    CHECK (media_type IN ('series', 'movie'));
+
 GRANT USAGE ON SCHEMA public TO app_user;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO app_user;

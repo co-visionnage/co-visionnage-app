@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { ImportSeriesSearch } from '@/features/import-series';
 import { uploadSeriesImage } from '@/shared/api/storage/client';
 import { useAppSounds } from '@/shared/hooks';
-import { SeriesData, SeriesStatus } from '@/shared/types';
+import { MediaType, SeriesData, SeriesStatus } from '@/shared/types';
 import {
   Button,
   Dialog,
@@ -48,6 +48,7 @@ export const AddSeriesDialog = ({ onAdd }: AddSeriesDialogProperties) => {
     year: new Date().getFullYear(),
     totalSeasons: undefined as number | undefined,
     totalEpisodes: undefined as number | undefined,
+    mediaType: 'series' as MediaType,
   });
 
   const handleImportSelect = (imported: ImportedSeries) => {
@@ -100,8 +101,11 @@ export const AddSeriesDialog = ({ onAdd }: AddSeriesDialogProperties) => {
         rating: newSeries.status === 'watched' ? newSeries.rating : undefined,
         comment:
           newSeries.status === 'watched' ? newSeries.comment.trim() : undefined,
-        totalSeasons: newSeries.totalSeasons,
-        totalEpisodes: newSeries.totalEpisodes,
+        totalSeasons:
+          newSeries.mediaType === 'movie' ? undefined : newSeries.totalSeasons,
+        totalEpisodes:
+          newSeries.mediaType === 'movie' ? undefined : newSeries.totalEpisodes,
+        mediaType: newSeries.mediaType,
       });
 
       setNewSeries({
@@ -114,6 +118,7 @@ export const AddSeriesDialog = ({ onAdd }: AddSeriesDialogProperties) => {
         year: new Date().getFullYear(),
         totalSeasons: undefined,
         totalEpisodes: undefined,
+        mediaType: 'series',
       });
       setGenreInput('');
       setIsOpen(false);
@@ -195,6 +200,24 @@ export const AddSeriesDialog = ({ onAdd }: AddSeriesDialogProperties) => {
                 setNewSeries({ ...newSeries, year: Number(event.target.value) })
               }
             />
+          </div>
+
+          <div className='rotate-1 transform border-2 border-black bg-lime-300 p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'>
+            <Label className='brutal-font font-bold text-black'>ТИП</Label>
+            <Select
+              value={newSeries.mediaType}
+              onValueChange={(value: MediaType) =>
+                setNewSeries({ ...newSeries, mediaType: value })
+              }
+            >
+              <SelectTrigger className='brutal-font border-2 border-black bg-white font-bold text-black'>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className='border-2 border-black bg-pink-300 font-bold'>
+                <SelectItem value='series'>СЕРИАЛ</SelectItem>
+                <SelectItem value='movie'>ФИЛЬМ</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className='-rotate-1 transform border-2 border-black bg-purple-400 p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'>

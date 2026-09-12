@@ -49,6 +49,9 @@ export const SeriesDetailView = ({ series }: SeriesDetailViewProperties) => {
         </div>
 
         <div className='flex flex-wrap items-center gap-2'>
+          <Badge className='border-2 border-black bg-purple-300 font-bold text-black'>
+            {series.mediaType === 'movie' ? 'ФИЛЬМ' : 'СЕРИАЛ'}
+          </Badge>
           <Badge className='border-2 border-black bg-yellow-300 font-bold text-black'>
             {series.year}
           </Badge>
@@ -76,7 +79,9 @@ export const SeriesDetailView = ({ series }: SeriesDetailViewProperties) => {
           </div>
         ) : undefined}
 
-        <EpisodeProgressControl series={series} />
+        {series.mediaType === 'movie' ? undefined : (
+          <EpisodeProgressControl series={series} />
+        )}
         <SeriesDiscussionDialog
           seriesId={series.id}
           seriesTitle={series.title}

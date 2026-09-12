@@ -170,39 +170,47 @@ export const EditSeriesDialog = ({
 
           <div className='rotate-1 border-2 border-black bg-cyan-300 p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'>
             <Label className='brutal-font font-black text-black'>
-              СЕЗОНЫ / СЕРИИ / МИНУТ НА СЕРИЮ
+              {series.mediaType === 'movie'
+                ? 'ПРОДОЛЖИТЕЛЬНОСТЬ, МИНУТ'
+                : 'СЕЗОНЫ / СЕРИИ / МИНУТ НА СЕРИЮ'}
             </Label>
-            <div className='grid grid-cols-3 gap-2'>
-              <Input
-                className='brutal-font border-2 border-black bg-white font-bold'
-                min={1}
-                placeholder='Сезонов'
-                type='number'
-                value={editData.totalSeasons ?? ''}
-                onChange={(event) =>
-                  setEditData({
-                    ...editData,
-                    totalSeasons: event.target.value
-                      ? Number(event.target.value)
-                      : undefined,
-                  })
-                }
-              />
-              <Input
-                className='brutal-font border-2 border-black bg-white font-bold'
-                min={1}
-                placeholder='Серий'
-                type='number'
-                value={editData.totalEpisodes ?? ''}
-                onChange={(event) =>
-                  setEditData({
-                    ...editData,
-                    totalEpisodes: event.target.value
-                      ? Number(event.target.value)
-                      : undefined,
-                  })
-                }
-              />
+            <div
+              className={`grid gap-2 ${series.mediaType === 'movie' ? 'grid-cols-1' : 'grid-cols-3'}`}
+            >
+              {series.mediaType === 'movie' ? undefined : (
+                <>
+                  <Input
+                    className='brutal-font border-2 border-black bg-white font-bold'
+                    min={1}
+                    placeholder='Сезонов'
+                    type='number'
+                    value={editData.totalSeasons ?? ''}
+                    onChange={(event) =>
+                      setEditData({
+                        ...editData,
+                        totalSeasons: event.target.value
+                          ? Number(event.target.value)
+                          : undefined,
+                      })
+                    }
+                  />
+                  <Input
+                    className='brutal-font border-2 border-black bg-white font-bold'
+                    min={1}
+                    placeholder='Серий'
+                    type='number'
+                    value={editData.totalEpisodes ?? ''}
+                    onChange={(event) =>
+                      setEditData({
+                        ...editData,
+                        totalEpisodes: event.target.value
+                          ? Number(event.target.value)
+                          : undefined,
+                      })
+                    }
+                  />
+                </>
+              )}
               <Input
                 className='brutal-font border-2 border-black bg-white font-bold'
                 min={1}

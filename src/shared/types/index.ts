@@ -1,4 +1,6 @@
 export type AuthMode = 'login' | 'register';
+export type MediaType = 'series' | 'movie';
+
 export interface Series {
   id: string;
   title: string;
@@ -12,6 +14,7 @@ export interface Series {
   totalSeasons?: number;
   totalEpisodes?: number;
   episodeRuntimeMinutes?: number;
+  mediaType: MediaType;
 }
 
 export type SeriesData = {
@@ -25,6 +28,7 @@ export type SeriesData = {
   totalSeasons?: number;
   totalEpisodes?: number;
   episodeRuntimeMinutes?: number;
+  mediaType: MediaType;
 };
 
 export type SeriesStatus = 'watched' | 'to-watch';
