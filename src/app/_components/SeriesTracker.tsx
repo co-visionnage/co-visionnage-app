@@ -14,6 +14,7 @@ import { FamilyStatsDialog } from '@/features/family-stats';
 import { FamilySwitcherDialog } from '@/features/family-switcher';
 import { PickForMeDialog } from '@/features/pick-for-me';
 import { RecommendationsSection } from '@/features/recommendations';
+import { WatchEventsDialog } from '@/features/watch-events';
 import { WatchHistoryDialog } from '@/features/watch-history';
 import { WatchPollDialog } from '@/features/watch-poll';
 import { YearWrappedDialog } from '@/features/year-wrapped';
@@ -294,6 +295,11 @@ const SeriesTracker = ({
             toWatchSeries={series.filter((item) => item.status === 'to-watch')}
           />
           <PickForMeDialog toWatchSeries={toWatchList} />
+          <WatchEventsDialog
+            currentUserId={currentUserId}
+            familyId={family.id}
+            toWatchSeries={toWatchList}
+          />
           <YearWrappedDialog familyId={family.id} familyName={family.name} />
         </div>
 

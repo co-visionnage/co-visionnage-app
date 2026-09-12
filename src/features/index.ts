@@ -14,5 +14,6 @@ export { EpisodeProgressControl } from './track-progress';
 export { TwoFactorSettings } from './two-factor';
 export { WatchHistoryDialog } from './watch-history';
 export { WatchPollDialog } from './watch-poll';
+export { WatchEventsDialog } from './watch-events';
 export { PickForMeDialog } from './pick-for-me';
 export { YearWrappedDialog } from './year-wrapped';
