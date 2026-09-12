@@ -1,7 +1,7 @@
 'use client';
 
 import { Check, CheckCheck, Clock, Copy } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import confetti from 'canvas-confetti';
 
 import { AddSeriesDialog } from '@/features/add-series';
@@ -59,10 +59,13 @@ const SeriesTracker = ({
   const client = useMemo(() => createClient(), []);
   const { playClick, playSuccess } = useAppSounds();
   const { preferences } = useUiPreferences();
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [series, setSeries] = useState<Series[]>(initialSeries);
   const [isInviteCopied, setIsInviteCopied] = useState(false);
 
+  // initialSeries comes from the server component's own SSR fetch on every
+  // navigation/reload, so it's already current at mount — loadSeries only
+  // needs to run again after a mutation (see runAndRefresh below), not here.
   const loadSeries = useCallback(async () => {
     setIsLoading(true);
 
@@ -76,10 +79,6 @@ const SeriesTracker = ({
       setIsLoading(false);
     }
   }, [client, family.id]);
-
-  useEffect(() => {
-    void loadSeries();
-  }, [loadSeries]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [genreFilter, setGenreFilter] = useState('all');
