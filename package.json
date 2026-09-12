@@ -10,7 +10,8 @@
     "lint:eslint": "eslint . --fix",
     "lint:oxc": "oxlint",
     "lint:types": "tsc --noEmit",
-    "format": "prettier . --write"
+    "format": "prettier . --write",
+    "migrate": "node scripts/migrate.mjs"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.15",
