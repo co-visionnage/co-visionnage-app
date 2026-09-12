@@ -176,20 +176,25 @@ export function createClient() {
 
       return readJson<{ recommendations: Recommendation[] }>(response);
     },
-    async getWatchHistory(familyId: string) {
-      const response = await fetch(`/api/family/history?familyId=${familyId}`, {
-        cache: 'no-store',
-      });
-
-      return readJson<{ history: WatchHistoryEntry[] }>(response);
-    },
-    async getFamilyActivityLog(familyId: string) {
+    async getWatchHistory(familyId: string, offset = 0) {
       const response = await fetch(
-        `/api/family/activity?familyId=${familyId}`,
+        `/api/family/history?familyId=${familyId}&offset=${offset}`,
         { cache: 'no-store' },
       );
 
-      return readJson<{ activity: FamilyActivityEntry[] }>(response);
+      return readJson<{ history: WatchHistoryEntry[]; hasMore: boolean }>(
+        response,
+      );
+    },
+    async getFamilyActivityLog(familyId: string, offset = 0) {
+      const response = await fetch(
+        `/api/family/activity?familyId=${familyId}&offset=${offset}`,
+        { cache: 'no-store' },
+      );
+
+      return readJson<{ activity: FamilyActivityEntry[]; hasMore: boolean }>(
+        response,
+      );
     },
     async searchImport(query: string) {
       const response = await fetch(

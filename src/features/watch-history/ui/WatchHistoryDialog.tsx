@@ -56,16 +56,34 @@ export const WatchHistoryDialog = ({
   const [isOpen, setIsOpen] = useState(false);
   const [history, setHistory] = useState<WatchHistoryEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { history: next } = await client.getWatchHistory(familyId);
+      const { history: next, hasMore: more } =
+        await client.getWatchHistory(familyId);
       setHistory(next);
+      setHasMore(more);
     } finally {
       setIsLoading(false);
     }
   }, [client, familyId]);
+
+  const loadMore = useCallback(async () => {
+    setIsLoadingMore(true);
+    try {
+      const { history: next, hasMore: more } = await client.getWatchHistory(
+        familyId,
+        history.length,
+      );
+      setHistory((previous) => [...previous, ...next]);
+      setHasMore(more);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [client, familyId, history.length]);
 
   useEffect(() => {
     if (isOpen) {
@@ -133,6 +151,16 @@ export const WatchHistoryDialog = ({
             </p>
           ) : undefined}
         </div>
+
+        {hasMore ? (
+          <Button
+            className='border-2 border-black bg-white font-bold text-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
+            disabled={isLoadingMore}
+            onClick={() => void loadMore()}
+          >
+            {isLoadingMore ? 'Загружаем...' : 'Показать ещё'}
+          </Button>
+        ) : undefined}
       </DialogContent>
     </Dialog>
   );
