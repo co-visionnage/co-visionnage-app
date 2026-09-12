@@ -1197,7 +1197,105 @@ ALTER TABLE public.family_series
   ADD COLUMN IF NOT EXISTS trailer_url text;
 
 -- =========================================================================
--- 014: optional spoiler tag on series comments
+-- 013: TOTP-based two-factor authentication
+--
+-- get_profile_auth_by_email now also returns totp_enabled so login can
+-- decide whether to finish immediately or ask for a code first (its
+-- RETURNS TABLE column list changed, hence the DROP FUNCTION below —
+-- CREATE OR REPLACE alone can't do that). get_totp_secret_for_login is the
+-- pre-session counterpart used once a password has already checked out but
+-- before a session exists, so it deliberately isn't scoped to
+-- current_user_id().
+-- =========================================================================
+
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS totp_secret text,
+  ADD COLUMN IF NOT EXISTS totp_enabled boolean NOT NULL DEFAULT false;
+
+-- Postgres won't let CREATE OR REPLACE change a RETURNS TABLE column list
+-- (even by only appending), so the old 4-column signature has to go first.
+DROP FUNCTION IF EXISTS public.get_profile_auth_by_email(text);
+
+CREATE OR REPLACE FUNCTION public.get_profile_auth_by_email(p_email text)
+RETURNS TABLE (
+  user_id uuid,
+  email text,
+  display_name varchar(50),
+  password_hash text,
+  totp_enabled boolean
+)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT
+    profile.id AS user_id,
+    profile.email AS email,
+    profile.display_name AS display_name,
+    profile.password_hash AS password_hash,
+    profile.totp_enabled AS totp_enabled
+  FROM public.profiles AS profile
+  WHERE profile.email = LOWER(TRIM(p_email))
+  LIMIT 1;
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_totp_secret_for_login(p_user_id uuid)
+RETURNS text
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT totp_secret
+  FROM public.profiles
+  WHERE id = p_user_id
+    AND totp_enabled = true;
+$$;
+
+-- =========================================================================
+-- 014: family activity log
+--
+-- A lightweight audit trail so an owner can see who added/removed a
+-- series or changed a member's role. actor_user_id cascades to NULL
+-- (rather than deleting the row) so the log survives self-service
+-- account deletion; actor_label/target_label are captured at write time
+-- so the log stays readable even after that.
+-- =========================================================================
+
+CREATE TABLE IF NOT EXISTS public.family_activity_log (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  family_id uuid NOT NULL REFERENCES public.families(id) ON DELETE CASCADE,
+  actor_user_id uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+  actor_label text NOT NULL,
+  action varchar(50) NOT NULL,
+  target_label text,
+  detail text,
+  created_at timestamptz NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS family_activity_log_family_id_index
+  ON public.family_activity_log (family_id, created_at DESC);
+
+ALTER TABLE public.family_activity_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.family_activity_log FORCE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS family_activity_log_select_member ON public.family_activity_log;
+CREATE POLICY family_activity_log_select_member
+  ON public.family_activity_log
+  FOR SELECT
+  USING (public.is_family_member(family_id));
+
+DROP POLICY IF EXISTS family_activity_log_insert_member ON public.family_activity_log;
+CREATE POLICY family_activity_log_insert_member
+  ON public.family_activity_log
+  FOR INSERT
+  WITH CHECK (
+    public.is_family_member(family_id)
+    AND (actor_user_id IS NULL OR actor_user_id = public.current_user_id())
+  );
+
+
+-- =========================================================================
+-- 015: optional spoiler tag on series comments
 --
 -- A comment can optionally declare which season/episode it discusses;
 -- family_series_progress already tracks each viewer's own current

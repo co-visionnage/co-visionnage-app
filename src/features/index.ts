@@ -1,5 +1,8 @@
 export { DeleteAccountButton } from './account-deletion';
 export { AddSeriesDialog } from './add-series';
+export { BulkImportDialog } from './bulk-import';
+export { AchievementsDialog } from './achievements';
+export { ActivityLogDialog } from './activity-log';
 export { SeriesDiscussionDialog } from './discuss-series';
 export { EditSeriesDialog } from './edit-series';
 export { FamilyStatsDialog } from './family-stats';
@@ -7,6 +10,8 @@ export { ImportSeriesSearch } from './import-series';
 export { MarkWatchedDialog } from './mark-watched';
 export { RecommendationsSection } from './recommendations';
 export { EpisodeProgressControl } from './track-progress';
+export { TwoFactorSettings } from './two-factor';
 export { WatchHistoryDialog } from './watch-history';
 export { WatchPollDialog } from './watch-poll';
+export { PickForMeDialog } from './pick-for-me';
 export { YearWrappedDialog } from './year-wrapped';

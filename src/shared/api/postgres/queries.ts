@@ -1,6 +1,10 @@
 import type { PoolClient } from 'pg';
 
 import {
+  Achievement,
+  AchievementId,
+  FamilyAchievements,
+  FamilyActivityEntry,
   FamilyMember,
   FamilyRole,
   FamilyStats,
@@ -209,11 +213,11 @@ export async function getFamilySeries(familyId: string) {
   );
 }
 
-export async function getHomePageData() {
+export async function getHomePageData(preferredFamilyId?: string) {
   const user = await requireCurrentUser();
 
   return withUserContext(user.id, async (client) => {
-    const membershipResult = await client.query<FamilyMembershipRow>(
+    const membershipsResult = await client.query<FamilyMembershipRow>(
       `
         SELECT
           member.role,
@@ -224,34 +228,39 @@ export async function getHomePageData() {
         JOIN public.families family ON family.id = member.family_id
         WHERE member.user_id = $1
         ORDER BY member.joined_at ASC
-        LIMIT 1
       `,
       [user.id],
     );
 
-    const membership = membershipResult.rows[0];
+    const memberships = membershipsResult.rows.map((row) => ({
+      role: row.role,
+      family: {
+        id: row.family_id,
+        name: row.family_name,
+        invite_code: row.invite_code,
+      },
+    }));
 
-    if (!membership) {
+    if (memberships.length === 0) {
       return {
         user,
+        memberships,
         membership: undefined,
         series: [],
       };
     }
 
+    const membership =
+      memberships.find((entry) => entry.family.id === preferredFamilyId) ??
+      memberships[0];
+
     return {
       user,
-      membership: {
-        role: membership.role,
-        family: {
-          id: membership.family_id,
-          name: membership.family_name,
-          invite_code: membership.invite_code,
-        },
-      },
+      memberships,
+      membership,
       series: await getFamilySeriesWithClient(
         client,
-        membership.family_id,
+        membership.family.id,
         user.id,
       ),
     };
@@ -553,6 +562,170 @@ export async function getFamilyStats(familyId: string) {
   });
 }
 
+function computeCurrentStreakWeeks(weekStarts: Date[]): number {
+  if (weekStarts.length === 0) return 0;
+
+  const sorted = weekStarts.toSorted((a, b) => b.getTime() - a.getTime());
+  const currentWeekStart = new Date();
+  currentWeekStart.setUTCHours(0, 0, 0, 0);
+  const day = currentWeekStart.getUTCDay();
+  const diffToMonday = day === 0 ? 6 : day - 1;
+  currentWeekStart.setUTCDate(currentWeekStart.getUTCDate() - diffToMonday);
+
+  const mostRecentGapDays = Math.round(
+    (currentWeekStart.getTime() - sorted[0].getTime()) / (1000 * 60 * 60 * 24),
+  );
+  // the streak is only "current" if the family watched something this week
+  // or last week — otherwise it's broken, even if it was long once
+  if (mostRecentGapDays > 7) return 0;
+
+  let streak = 1;
+  for (let index = 1; index < sorted.length; index++) {
+    const gapDays = Math.round(
+      (sorted[index - 1].getTime() - sorted[index].getTime()) /
+        (1000 * 60 * 60 * 24),
+    );
+    if (gapDays === 7) {
+      streak += 1;
+    } else {
+      break;
+    }
+  }
+
+  return streak;
+}
+
+export async function getFamilyAchievements(familyId: string) {
+  const user = await requireCurrentUser();
+
+  return withUserContext(user.id, async (client) => {
+    const totalsResult = await client.query<{
+      total_hours: string;
+      total_watched: string;
+    }>(
+      `
+        SELECT
+          COALESCE(
+            SUM(
+              COALESCE(series.total_episodes, 1) *
+              COALESCE(series.episode_runtime_minutes, 45)
+            ) / 60.0,
+            0
+          ) AS total_hours,
+          COUNT(*) AS total_watched
+        FROM public.family_series_status status
+        JOIN public.family_series series ON series.id = status.series_id
+        WHERE series.family_id = $1
+          AND status.status = 'watched'
+      `,
+      [familyId],
+    );
+
+    const weeksResult = await client.query<{ week_start: string }>(
+      `
+        SELECT DISTINCT
+          DATE_TRUNC('week', COALESCE(status.watched_at, status.updated_at))::date AS week_start
+        FROM public.family_series_status status
+        JOIN public.family_series series ON series.id = status.series_id
+        WHERE series.family_id = $1
+          AND status.status = 'watched'
+      `,
+      [familyId],
+    );
+
+    const totals = totalsResult.rows[0];
+    const totalWatchedCount = Number(totals?.total_watched ?? 0);
+    const totalHoursWatched = Math.round(Number(totals?.total_hours ?? 0));
+    const currentStreakWeeks = computeCurrentStreakWeeks(
+      weeksResult.rows.map((row) => new Date(row.week_start)),
+    );
+
+    const definitions: {
+      id: AchievementId;
+      title: string;
+      description: string;
+      progress: number;
+      target: number;
+    }[] = [
+      {
+        id: 'first-watch',
+        title: 'Первый просмотр',
+        description: 'Отметьте первый сериал или фильм как просмотренный',
+        progress: totalWatchedCount,
+        target: 1,
+      },
+      {
+        id: 'watched-10',
+        title: '10 просмотрено',
+        description: 'Досмотрите 10 сериалов или фильмов',
+        progress: totalWatchedCount,
+        target: 10,
+      },
+      {
+        id: 'watched-25',
+        title: '25 просмотрено',
+        description: 'Досмотрите 25 сериалов или фильмов',
+        progress: totalWatchedCount,
+        target: 25,
+      },
+      {
+        id: 'watched-50',
+        title: '50 просмотрено',
+        description: 'Досмотрите 50 сериалов или фильмов',
+        progress: totalWatchedCount,
+        target: 50,
+      },
+      {
+        id: 'hours-10',
+        title: '10 часов',
+        description: 'Наберите 10 часов совместного просмотра',
+        progress: totalHoursWatched,
+        target: 10,
+      },
+      {
+        id: 'hours-50',
+        title: '50 часов',
+        description: 'Наберите 50 часов совместного просмотра',
+        progress: totalHoursWatched,
+        target: 50,
+      },
+      {
+        id: 'hours-100',
+        title: '100 часов',
+        description: 'Наберите 100 часов совместного просмотра',
+        progress: totalHoursWatched,
+        target: 100,
+      },
+      {
+        id: 'streak-4-weeks',
+        title: 'Месяц подряд',
+        description: 'Смотрите что-нибудь каждую неделю 4 недели подряд',
+        progress: currentStreakWeeks,
+        target: 4,
+      },
+      {
+        id: 'streak-12-weeks',
+        title: 'Три месяца подряд',
+        description: 'Смотрите что-нибудь каждую неделю 12 недель подряд',
+        progress: currentStreakWeeks,
+        target: 12,
+      },
+    ];
+
+    const achievements: Achievement[] = definitions.map((definition) => ({
+      ...definition,
+      unlocked: definition.progress >= definition.target,
+    }));
+
+    return {
+      totalWatchedCount,
+      totalHoursWatched,
+      currentStreakWeeks,
+      achievements,
+    } satisfies FamilyAchievements;
+  });
+}
+
 export async function getYearWrapped(familyId: string, year: number) {
   const user = await requireCurrentUser();
 
@@ -826,6 +999,43 @@ export async function getFamilyWatchPolls(familyId: string) {
               votedByMe: option.voted_by_me,
             }),
           ),
+      }),
+    );
+  });
+}
+
+type FamilyActivityRow = {
+  id: string;
+  actor_label: string;
+  action: FamilyActivityEntry['action'];
+  target_label: string | null;
+  detail: string | null;
+  created_at: string;
+};
+
+export async function getFamilyActivityLog(familyId: string) {
+  const user = await requireCurrentUser();
+
+  return withUserContext(user.id, async (client) => {
+    const result = await client.query<FamilyActivityRow>(
+      `
+        SELECT id, actor_label, action, target_label, detail, created_at
+        FROM public.family_activity_log
+        WHERE family_id = $1
+        ORDER BY created_at DESC
+        LIMIT 100
+      `,
+      [familyId],
+    );
+
+    return result.rows.map(
+      (row): FamilyActivityEntry => ({
+        id: row.id,
+        actorLabel: row.actor_label,
+        action: row.action,
+        targetLabel: row.target_label ?? undefined,
+        detail: row.detail ?? undefined,
+        createdAt: row.created_at,
       }),
     );
   });

@@ -5,8 +5,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import confetti from 'canvas-confetti';
 
 import { FamilyMembersDialog } from '@/app/_components/FamilyMembersDialog';
+import { AchievementsDialog } from '@/features/achievements';
+import { ActivityLogDialog } from '@/features/activity-log';
 import { AddSeriesDialog } from '@/features/add-series';
+import { BulkImportDialog } from '@/features/bulk-import';
 import { FamilyStatsDialog } from '@/features/family-stats';
+import { FamilySwitcherDialog } from '@/features/family-switcher';
+import { PickForMeDialog } from '@/features/pick-for-me';
 import { RecommendationsSection } from '@/features/recommendations';
 import { WatchHistoryDialog } from '@/features/watch-history';
 import { WatchPollDialog } from '@/features/watch-poll';
@@ -20,7 +25,12 @@ import {
 } from '@/shared/actions/series-postgres';
 import { createClient } from '@/shared/api/postgres/client';
 import { useAppSounds, useDebounce, useUiPreferences } from '@/shared/hooks';
-import { FamilyRole, Series, SeriesData } from '@/shared/types';
+import {
+  FamilyMembership,
+  FamilyRole,
+  Series,
+  SeriesData,
+} from '@/shared/types';
 import {
   EmptyState,
   SeriesCardSkeleton,
@@ -40,6 +50,7 @@ interface SeriesTrackerProperties {
     name: string;
     invite_code: string;
   };
+  memberships: FamilyMembership[];
   initialSeries: Series[];
 }
 
@@ -49,6 +60,7 @@ const SeriesTracker = ({
   userDisplayName,
   userEmail,
   family,
+  memberships,
   initialSeries,
 }: SeriesTrackerProperties) => {
   const client = useMemo(() => createClient(), []);
@@ -246,6 +258,10 @@ const SeriesTracker = ({
               Семья: {family.name}
             </span>
           </div>
+          <FamilySwitcherDialog
+            activeFamilyId={family.id}
+            memberships={memberships}
+          />
           <button
             className='flex rotate-1 items-center gap-3 border-4 border-black bg-white p-3 text-left shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-all hover:-translate-y-0.5 hover:bg-lime-200'
             type='button'
@@ -268,11 +284,14 @@ const SeriesTracker = ({
             familyId={family.id}
           />
           <FamilyStatsDialog familyId={family.id} />
+          <AchievementsDialog familyId={family.id} />
           <WatchHistoryDialog familyId={family.id} />
+          <ActivityLogDialog familyId={family.id} />
           <WatchPollDialog
             familyId={family.id}
             toWatchSeries={series.filter((item) => item.status === 'to-watch')}
           />
+          <PickForMeDialog toWatchSeries={toWatchList} />
           <YearWrappedDialog familyId={family.id} familyName={family.name} />
         </div>
 
@@ -291,8 +310,9 @@ const SeriesTracker = ({
           onYearChange={setYearFilter}
         />
 
-        <div className='mb-8 flex justify-center'>
+        <div className='mb-8 flex flex-wrap justify-center gap-3'>
           <AddSeriesDialog onAdd={handleAddSeries} />
+          <BulkImportDialog onAdd={handleAddSeries} />
         </div>
 
         <Tabs

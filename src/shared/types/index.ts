@@ -41,6 +41,15 @@ export type SeriesStatus = 'watched' | 'to-watch';
 
 export type FamilyRole = 'owner' | 'admin' | 'member';
 
+export type FamilyMembership = {
+  role: FamilyRole;
+  family: {
+    id: string;
+    name: string;
+    invite_code: string;
+  };
+};
+
 export type FamilyMember = {
   userId: string;
   email: string;
@@ -94,6 +103,33 @@ export type FamilyStats = {
   topGenres: FamilyStatsGenre[];
 };
 
+export type AchievementId =
+  | 'first-watch'
+  | 'watched-10'
+  | 'watched-25'
+  | 'watched-50'
+  | 'hours-10'
+  | 'hours-50'
+  | 'hours-100'
+  | 'streak-4-weeks'
+  | 'streak-12-weeks';
+
+export type Achievement = {
+  id: AchievementId;
+  title: string;
+  description: string;
+  unlocked: boolean;
+  progress: number;
+  target: number;
+};
+
+export type FamilyAchievements = {
+  totalWatchedCount: number;
+  totalHoursWatched: number;
+  currentStreakWeeks: number;
+  achievements: Achievement[];
+};
+
 export type YearWrapped = {
   year: number;
   totalHoursWatched: number;
@@ -137,6 +173,22 @@ export type WatchPoll = {
   createdAt: string;
   createdBy: string;
   options: WatchPollOption[];
+};
+
+export type FamilyActivityAction =
+  | 'series_added'
+  | 'series_removed'
+  | 'member_joined'
+  | 'role_changed'
+  | 'ownership_transferred';
+
+export type FamilyActivityEntry = {
+  id: string;
+  actorLabel: string;
+  action: FamilyActivityAction;
+  targetLabel?: string;
+  detail?: string;
+  createdAt: string;
 };
 
 export type AppTheme = 'brutal' | 'minimal' | 'dark';
