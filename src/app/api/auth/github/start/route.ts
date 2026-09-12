@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server';
 
 import { ENV } from '@/shared/config/environment';
 
-const GITHUB_OAUTH_STATE_COOKIE = 'co_visionnage_github_oauth_state';
+const GITHUB_OAUTH_STATE_COOKIE = 'notre_cinema_github_oauth_state';
 
 export async function GET(request: Request) {
   if (!ENV.GITHUB_CLIENT_ID) {

@@ -1,5 +1,5 @@
-const SHELL_CACHE = 'co-visionnage-shell-v1';
-const IMAGE_CACHE = 'co-visionnage-images-v1';
+const SHELL_CACHE = 'notre-cinema-shell-v1';
+const IMAGE_CACHE = 'notre-cinema-images-v1';
 const OFFLINE_URL = '/offline.html';
 
 self.addEventListener('install', (event) => {

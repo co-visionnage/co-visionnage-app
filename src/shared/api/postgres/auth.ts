@@ -9,7 +9,7 @@ import { cookies } from 'next/headers';
 
 import { query } from './database';
 
-const SESSION_COOKIE_NAME = 'co_visionnage_session';
+const SESSION_COOKIE_NAME = 'notre_cinema_session';
 const SESSION_TTL_DAYS = 30;
 const PASSWORD_KEY_LENGTH = 64;
 

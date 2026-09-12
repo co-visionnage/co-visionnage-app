@@ -2,8 +2,8 @@
 
 import type { AppTheme, UiPreferences } from '@/shared/types';
 
-export const UI_PREFERENCES_STORAGE_KEY = 'co-visionnage-ui-preferences';
-export const UI_PREFERENCES_EVENT = 'co-visionnage-ui-preferences-changed';
+export const UI_PREFERENCES_STORAGE_KEY = 'notre-cinema-ui-preferences';
+export const UI_PREFERENCES_EVENT = 'notre-cinema-ui-preferences-changed';
 
 export const APP_THEMES: AppTheme[] = ['brutal', 'minimal', 'dark'];
 

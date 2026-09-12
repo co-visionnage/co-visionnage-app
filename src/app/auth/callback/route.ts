@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 import { createUserSession } from '@/shared/api/postgres/auth';
 import { ENV } from '@/shared/config/environment';
 
-const GITHUB_OAUTH_STATE_COOKIE = 'co_visionnage_github_oauth_state';
+const GITHUB_OAUTH_STATE_COOKIE = 'notre_cinema_github_oauth_state';
 
 type GitHubAccessTokenResponse = {
   access_token?: string;
@@ -80,7 +80,7 @@ export async function GET(request: Request) {
       headers: {
         Accept: 'application/vnd.github+json',
         Authorization: `Bearer ${tokenPayload.access_token}`,
-        'User-Agent': 'co-visionnage',
+        'User-Agent': 'notre-cinema',
       },
       cache: 'no-store',
     });
@@ -98,7 +98,7 @@ export async function GET(request: Request) {
         headers: {
           Accept: 'application/vnd.github+json',
           Authorization: `Bearer ${tokenPayload.access_token}`,
-          'User-Agent': 'co-visionnage',
+          'User-Agent': 'notre-cinema',
         },
         cache: 'no-store',
       });
