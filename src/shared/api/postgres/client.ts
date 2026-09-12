@@ -11,6 +11,7 @@ import {
   SeriesProgress,
   SeriesReaction,
   SeriesStatus,
+  WatchEvent,
   WatchHistoryEntry,
   WatchPoll,
   YearWrapped,
@@ -204,6 +205,14 @@ export function createClient() {
       });
 
       return readJson<{ polls: WatchPoll[] }>(response);
+    },
+    async getFamilyWatchEvents(familyId: string) {
+      const response = await fetch(
+        `/api/family/watch-events?familyId=${familyId}`,
+        { cache: 'no-store' },
+      );
+
+      return readJson<{ events: WatchEvent[] }>(response);
     },
   };
 }

@@ -175,6 +175,25 @@ export type WatchPoll = {
   options: WatchPollOption[];
 };
 
+export type RsvpStatus = 'going' | 'maybe' | 'no';
+
+export type WatchEventRsvp = {
+  userId: string;
+  displayName: string;
+  status: RsvpStatus;
+};
+
+export type WatchEvent = {
+  id: string;
+  title: string;
+  scheduledAt: string;
+  seriesId?: string;
+  seriesTitle?: string;
+  createdBy: string;
+  myRsvp?: RsvpStatus;
+  rsvps: WatchEventRsvp[];
+};
+
 export type FamilyActivityAction =
   | 'series_added'
   | 'series_removed'
