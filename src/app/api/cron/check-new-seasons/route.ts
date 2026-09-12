@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { query } from '@/shared/api/postgres/database';
 import { ENV } from '@/shared/config/environment';
+import { mapWithConcurrency } from '@/shared/lib/concurrency';
 import { notifyFamilyByEmail } from '@/shared/lib/email/notifyFamilyByEmail';
 import { fetchCurrentSeasonInfo } from '@/shared/lib/importSeries/checkUpdates';
 import { notifyFamilySystem } from '@/shared/lib/push/notifyFamily';
+
+const CONCURRENCY = 5;
 
 type TrackedSeries = {
   id: string;
@@ -32,32 +35,45 @@ export async function POST(request: NextRequest) {
     'SELECT * FROM public.get_series_with_external_ids()',
   );
 
+  const updates = await mapWithConcurrency(
+    tracked.rows,
+    CONCURRENCY,
+    async (series) => {
+      const fresh = await fetchCurrentSeasonInfo(
+        series.external_source,
+        series.external_id,
+      ).catch((error: unknown) => {
+        console.error(
+          `check-new-seasons: lookup failed for "${series.title}" (${series.external_source}:${series.external_id})`,
+          error,
+        );
+      });
+
+      if (!fresh?.totalSeasons) return;
+      if (series.total_seasons && fresh.totalSeasons <= series.total_seasons) {
+        return;
+      }
+
+      const totalSeasons = fresh.totalSeasons;
+      const totalEpisodes = fresh.totalEpisodes;
+      return { series, totalSeasons, totalEpisodes };
+    },
+  );
+
   const results: { title: string; newTotalSeasons: number }[] = [];
 
-  for (const series of tracked.rows) {
-    const fresh = await fetchCurrentSeasonInfo(
-      series.external_source,
-      series.external_id,
-    ).catch((error: unknown) => {
-      console.error(
-        `check-new-seasons: lookup failed for "${series.title}" (${series.external_source}:${series.external_id})`,
-        error,
-      );
-    });
-
-    if (!fresh?.totalSeasons) continue;
-    if (series.total_seasons && fresh.totalSeasons <= series.total_seasons) {
-      continue;
-    }
+  for (const update of updates) {
+    if (!update) continue;
+    const { series, totalSeasons, totalEpisodes } = update;
 
     await query('SELECT public.update_series_season_tracking($1, $2, $3)', [
       series.id,
-      fresh.totalSeasons,
-      fresh.totalEpisodes ?? undefined,
+      totalSeasons,
+      totalEpisodes ?? undefined,
     ]);
 
     const title = 'Вышел новый сезон!';
-    const body = `У «${series.title}» теперь ${fresh.totalSeasons} сезон(ов)`;
+    const body = `У «${series.title}» теперь ${totalSeasons} сезон(ов)`;
 
     await notifyFamilySystem({ query }, series.family_id, {
       title,
@@ -75,7 +91,7 @@ export async function POST(request: NextRequest) {
       body,
     );
 
-    results.push({ title: series.title, newTotalSeasons: fresh.totalSeasons });
+    results.push({ title: series.title, newTotalSeasons: totalSeasons });
   }
 
   return NextResponse.json({ checked: tracked.rows.length, updated: results });
