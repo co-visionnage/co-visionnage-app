@@ -4,20 +4,11 @@ import { Check, CheckCheck, Clock, Copy } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import confetti from 'canvas-confetti';
 
-import { FamilyMembersDialog } from '@/app/_components/FamilyMembersDialog';
-import { AchievementsDialog } from '@/features/achievements';
-import { ActivityLogDialog } from '@/features/activity-log';
 import { AddSeriesDialog } from '@/features/add-series';
 import { BulkImportDialog } from '@/features/bulk-import';
-import { EpisodeCalendarDialog } from '@/features/episode-calendar';
-import { FamilyStatsDialog } from '@/features/family-stats';
 import { FamilySwitcherDialog } from '@/features/family-switcher';
-import { PickForMeDialog } from '@/features/pick-for-me';
+import { FamilyToolsMenu } from '@/features/family-tools-menu';
 import { RecommendationsSection } from '@/features/recommendations';
-import { WatchEventsDialog } from '@/features/watch-events';
-import { WatchHistoryDialog } from '@/features/watch-history';
-import { WatchPollDialog } from '@/features/watch-poll';
-import { YearWrappedDialog } from '@/features/year-wrapped';
 import {
   addSeriesAction as addSeries,
   deleteAction as deleteSeries,
@@ -280,27 +271,15 @@ const SeriesTracker = ({
               {isInviteCopied ? 'Скопировано' : 'Копировать'}
             </span>
           </button>
-          <FamilyMembersDialog
+          <FamilyToolsMenu
             currentUserId={currentUserId}
             currentUserRole={currentUserRole}
             familyId={family.id}
-          />
-          <FamilyStatsDialog familyId={family.id} />
-          <AchievementsDialog familyId={family.id} />
-          <WatchHistoryDialog familyId={family.id} />
-          <EpisodeCalendarDialog series={series} onRefresh={loadSeries} />
-          <ActivityLogDialog familyId={family.id} />
-          <WatchPollDialog
-            familyId={family.id}
-            toWatchSeries={series.filter((item) => item.status === 'to-watch')}
-          />
-          <PickForMeDialog toWatchSeries={toWatchList} />
-          <WatchEventsDialog
-            currentUserId={currentUserId}
-            familyId={family.id}
+            familyName={family.name}
+            series={series}
             toWatchSeries={toWatchList}
+            onRefreshSeries={loadSeries}
           />
-          <YearWrappedDialog familyId={family.id} familyName={family.name} />
         </div>
 
         <RecommendationsSection familyId={family.id} />
