@@ -25,7 +25,12 @@ export async function notifyFamilyByEmail(
       subject,
       text,
     });
-  } catch {
-    // best-effort — email delivery must never block the underlying series action
+  } catch (error) {
+    // best-effort — email delivery must never block the underlying series
+    // action, but a silent failure here is invisible without this log
+    console.error(
+      `notifyFamilyByEmail: failed to send "${subject}" to ${recipients.length} recipient(s)`,
+      error,
+    );
   }
 }
