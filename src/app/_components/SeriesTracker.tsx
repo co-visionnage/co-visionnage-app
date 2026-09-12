@@ -6,6 +6,7 @@ import confetti from 'canvas-confetti';
 
 import { FamilyMembersDialog } from '@/app/_components/FamilyMembersDialog';
 import { AchievementsDialog } from '@/features/achievements';
+import { ActivityLogDialog } from '@/features/activity-log';
 import { AddSeriesDialog } from '@/features/add-series';
 import { FamilyStatsDialog } from '@/features/family-stats';
 import { PickForMeDialog } from '@/features/pick-for-me';
@@ -272,6 +273,7 @@ const SeriesTracker = ({
           <FamilyStatsDialog familyId={family.id} />
           <AchievementsDialog familyId={family.id} />
           <WatchHistoryDialog familyId={family.id} />
+          <ActivityLogDialog familyId={family.id} />
           <WatchPollDialog
             familyId={family.id}
             toWatchSeries={series.filter((item) => item.status === 'to-watch')}

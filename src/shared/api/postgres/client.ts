@@ -3,6 +3,7 @@ import type { ImportedSeries } from '@/shared/lib/importSeries/types';
 import {
   AuthMode,
   FamilyAchievements,
+  FamilyActivityEntry,
   FamilyMember,
   FamilyStats,
   Recommendation,
@@ -180,6 +181,14 @@ export function createClient() {
       });
 
       return readJson<{ history: WatchHistoryEntry[] }>(response);
+    },
+    async getFamilyActivityLog(familyId: string) {
+      const response = await fetch(
+        `/api/family/activity?familyId=${familyId}`,
+        { cache: 'no-store' },
+      );
+
+      return readJson<{ activity: FamilyActivityEntry[] }>(response);
     },
     async searchImport(query: string) {
       const response = await fetch(
