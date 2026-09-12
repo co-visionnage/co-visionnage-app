@@ -7,6 +7,7 @@ import confetti from 'canvas-confetti';
 import { FamilyMembersDialog } from '@/app/_components/FamilyMembersDialog';
 import { AddSeriesDialog } from '@/features/add-series';
 import { FamilyStatsDialog } from '@/features/family-stats';
+import { PickForMeDialog } from '@/features/pick-for-me';
 import { RecommendationsSection } from '@/features/recommendations';
 import { WatchHistoryDialog } from '@/features/watch-history';
 import { WatchPollDialog } from '@/features/watch-poll';
@@ -273,6 +274,7 @@ const SeriesTracker = ({
             familyId={family.id}
             toWatchSeries={series.filter((item) => item.status === 'to-watch')}
           />
+          <PickForMeDialog toWatchSeries={toWatchList} />
           <YearWrappedDialog familyId={family.id} familyName={family.name} />
         </div>
 
