@@ -11,10 +11,13 @@ import {
   FamilyStatsMonth,
   MediaType,
   Recommendation,
+  RsvpStatus,
   SeriesComment,
   SeriesProgress,
   SeriesReaction,
   SeriesStatus,
+  WatchEvent,
+  WatchEventRsvp,
   WatchHistoryEntry,
   WatchPoll,
   WatchPollOption,
@@ -989,5 +992,89 @@ export async function getFamilyWatchPolls(familyId: string) {
           ),
       }),
     );
+  });
+}
+
+type WatchEventRow = {
+  id: string;
+  title: string;
+  scheduled_at: string;
+  series_id: string | null;
+  series_title: string | null;
+  created_by: string;
+};
+
+type WatchEventRsvpRow = {
+  event_id: string;
+  user_id: string;
+  display_name: string | null;
+  email: string;
+  status: string;
+};
+
+export async function getFamilyWatchEvents(familyId: string) {
+  const user = await requireCurrentUser();
+
+  return withUserContext(user.id, async (client) => {
+    const eventsResult = await client.query<WatchEventRow>(
+      `
+        SELECT
+          event.id,
+          event.title,
+          event.scheduled_at,
+          event.series_id,
+          series.title AS series_title,
+          event.created_by
+        FROM public.family_watch_events event
+        LEFT JOIN public.family_series series ON series.id = event.series_id
+        WHERE event.family_id = $1
+        ORDER BY event.scheduled_at ASC
+      `,
+      [familyId],
+    );
+
+    const events = eventsResult.rows;
+    if (events.length === 0) {
+      return [];
+    }
+
+    const rsvpsResult = await client.query<WatchEventRsvpRow>(
+      `
+        SELECT
+          rsvp.event_id,
+          rsvp.user_id,
+          profile.display_name,
+          profile.email,
+          rsvp.status
+        FROM public.family_watch_event_rsvps rsvp
+        JOIN public.profiles profile ON profile.id = rsvp.user_id
+        WHERE rsvp.event_id = ANY($1::uuid[])
+      `,
+      [events.map((event) => event.id)],
+    );
+
+    return events.map((event): WatchEvent => {
+      const eventRsvps = rsvpsResult.rows.filter(
+        (rsvp) => rsvp.event_id === event.id,
+      );
+      const mine = eventRsvps.find((rsvp) => rsvp.user_id === user.id);
+
+      return {
+        id: event.id,
+        title: event.title,
+        scheduledAt: event.scheduled_at,
+        seriesId: event.series_id ?? undefined,
+        seriesTitle: event.series_title ?? undefined,
+        createdBy: event.created_by,
+        myRsvp: mine ? (mine.status as RsvpStatus) : undefined,
+        rsvps: eventRsvps.map(
+          (rsvp): WatchEventRsvp => ({
+            userId: rsvp.user_id,
+            displayName: rsvp.display_name ?? rsvp.email,
+            status: rsvp.status as RsvpStatus,
+          }),
+        ),
+      };
+    });
   });
 }
