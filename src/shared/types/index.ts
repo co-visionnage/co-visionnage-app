@@ -15,6 +15,8 @@ export interface Series {
   totalEpisodes?: number;
   episodeRuntimeMinutes?: number;
   mediaType: MediaType;
+  externalSource?: string;
+  externalId?: string;
 }
 
 export type SeriesData = {
@@ -29,6 +31,8 @@ export type SeriesData = {
   totalEpisodes?: number;
   episodeRuntimeMinutes?: number;
   mediaType: MediaType;
+  externalSource?: string;
+  externalId?: string;
 };
 
 export type SeriesStatus = 'watched' | 'to-watch';

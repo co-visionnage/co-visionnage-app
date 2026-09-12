@@ -40,15 +40,16 @@ export async function searchOmdb(query: string): Promise<ImportedSeries[]> {
   if (data.Response !== 'True' || !data.Search) return [];
 
   const detailed = await Promise.all(
-    data.Search.slice(0, 10).map((item) => fetchOmdbDetail(item.imdbID)),
+    data.Search.slice(0, 10).map((item) => getOmdbById(item.imdbID)),
   );
 
   return detailed.filter((item): item is ImportedSeries => item !== undefined);
 }
 
-async function fetchOmdbDetail(
+export async function getOmdbById(
   imdbId: string,
 ): Promise<ImportedSeries | undefined> {
+  if (!ENV.OMDB_API_KEY) return undefined;
   const url = new URL('https://www.omdbapi.com/');
   url.searchParams.set('apikey', ENV.OMDB_API_KEY!);
   url.searchParams.set('i', imdbId);
