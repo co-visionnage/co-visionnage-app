@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://co-visionnage.ru/sitemap.xml
+Sitemap: https://notrecinema.ru/sitemap.xml

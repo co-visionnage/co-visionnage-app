@@ -9,11 +9,11 @@ const connectionString =
   `postgresql://${ENV.DB_USER}:${ENV.DB_PASSWORD}@${ENV.DB_HOST}:${ENV.DB_PORT}/${ENV.DB_NAME}`;
 
 const globalForDatabase = globalThis as typeof globalThis & {
-  __coVisionnagePool?: Pool;
+  __notreCinemaPool?: Pool;
 };
 
 const pool =
-  globalForDatabase.__coVisionnagePool ??
+  globalForDatabase.__notreCinemaPool ??
   new Pool({
     connectionString,
     max: 20,
@@ -22,7 +22,7 @@ const pool =
   });
 
 if (process.env.NODE_ENV !== 'production') {
-  globalForDatabase.__coVisionnagePool = pool;
+  globalForDatabase.__notreCinemaPool = pool;
 }
 
 export function getPool() {

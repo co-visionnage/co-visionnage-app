@@ -49,7 +49,7 @@ const RootLayout = ({
         <script
           dangerouslySetInnerHTML={{
             __html: `try {
-  var raw = localStorage.getItem('co-visionnage-ui-preferences');
+  var raw = localStorage.getItem('notre-cinema-ui-preferences');
   var theme = raw ? JSON.parse(raw).theme : null;
   document.documentElement.dataset.theme =
     theme === 'minimal' || theme === 'dark' ? theme : 'brutal';
