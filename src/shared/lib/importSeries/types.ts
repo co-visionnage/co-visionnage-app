@@ -1,6 +1,6 @@
 export type ImportedSeries = {
   externalId: string;
-  source: 'kinopoisk' | 'omdb';
+  source: 'kinopoisk' | 'omdb' | 'trakt' | 'imdb-csv';
   title: string;
   year: number;
   genres: string[];

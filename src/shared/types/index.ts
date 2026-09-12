@@ -43,6 +43,15 @@ export type SeriesStatus = 'watched' | 'to-watch';
 
 export type FamilyRole = 'owner' | 'admin' | 'member';
 
+export type FamilyMembership = {
+  role: FamilyRole;
+  family: {
+    id: string;
+    name: string;
+    invite_code: string;
+  };
+};
+
 export type FamilyMember = {
   userId: string;
   email: string;
