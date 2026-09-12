@@ -92,3 +92,20 @@ export async function notifyFamilySystem(
 
   await sendToSubscriptions(rows, payload);
 }
+
+// Same idea as notifyFamilySystem, but for a single user — used by the
+// inactivity-reminder cron job, which nudges one person, not a family.
+export async function notifyUserSystem(
+  client: QueryClient,
+  userId: string,
+  payload: PushPayload,
+): Promise<void> {
+  if (!ensureConfigured()) return;
+
+  const { rows } = await client.query<PushSubscriptionRow>(
+    'SELECT * FROM public.get_user_push_subscriptions_system($1)',
+    [userId],
+  );
+
+  await sendToSubscriptions(rows, payload);
+}
