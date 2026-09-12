@@ -238,7 +238,16 @@ export async function getSessionUser(): Promise<SessionUser | undefined> {
   const session = result.rows[0];
 
   if (!session) {
-    cookieStore.delete(SESSION_COOKIE_NAME);
+    // getSessionUser is also called from plain page renders (Server
+    // Components), where Next.js forbids mutating cookies at all -- only
+    // Server Actions and Route Handlers may. There the delete is a no-op
+    // best-effort cleanup of the now-invalid cookie; the caller still
+    // correctly sees "logged out" either way since no session was found.
+    try {
+      cookieStore.delete(SESSION_COOKIE_NAME);
+    } catch {
+      // ignore -- see comment above
+    }
     return;
   }
 
