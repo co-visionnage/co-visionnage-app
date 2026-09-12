@@ -7,6 +7,7 @@ import confetti from 'canvas-confetti';
 import { FamilyMembersDialog } from '@/app/_components/FamilyMembersDialog';
 import { AchievementsDialog } from '@/features/achievements';
 import { AddSeriesDialog } from '@/features/add-series';
+import { BulkImportDialog } from '@/features/bulk-import';
 import { FamilyStatsDialog } from '@/features/family-stats';
 import { PickForMeDialog } from '@/features/pick-for-me';
 import { RecommendationsSection } from '@/features/recommendations';
@@ -295,8 +296,9 @@ const SeriesTracker = ({
           onYearChange={setYearFilter}
         />
 
-        <div className='mb-8 flex justify-center'>
+        <div className='mb-8 flex flex-wrap justify-center gap-3'>
           <AddSeriesDialog onAdd={handleAddSeries} />
+          <BulkImportDialog onAdd={handleAddSeries} />
         </div>
 
         <Tabs

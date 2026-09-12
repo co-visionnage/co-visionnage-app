@@ -1,5 +1,6 @@
 export { DeleteAccountButton } from './account-deletion';
 export { AddSeriesDialog } from './add-series';
+export { BulkImportDialog } from './bulk-import';
 export { AchievementsDialog } from './achievements';
 export { SeriesDiscussionDialog } from './discuss-series';
 export { EditSeriesDialog } from './edit-series';
