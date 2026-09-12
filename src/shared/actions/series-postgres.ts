@@ -64,11 +64,12 @@ export async function addSeriesAction(
             total_seasons,
             total_episodes,
             episode_runtime_minutes,
+            trailer_url,
             media_type,
             external_source,
             external_id
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
           RETURNING id
         `,
         [
@@ -81,6 +82,7 @@ export async function addSeriesAction(
           data.totalSeasons ?? undefined,
           data.totalEpisodes ?? undefined,
           data.episodeRuntimeMinutes ?? undefined,
+          data.trailerUrl ?? undefined,
           data.mediaType,
           data.externalSource ?? undefined,
           data.externalId ?? undefined,
@@ -263,7 +265,8 @@ export async function editAction(
         updates.image_url !== undefined ||
         updates.totalSeasons !== undefined ||
         updates.totalEpisodes !== undefined ||
-        updates.episodeRuntimeMinutes !== undefined
+        updates.episodeRuntimeMinutes !== undefined ||
+        updates.trailerUrl !== undefined
       ) {
         await client.query(
           `
@@ -277,7 +280,8 @@ export async function editAction(
                 END,
                 total_seasons = COALESCE($6, total_seasons),
                 total_episodes = COALESCE($7, total_episodes),
-                episode_runtime_minutes = COALESCE($8, episode_runtime_minutes)
+                episode_runtime_minutes = COALESCE($8, episode_runtime_minutes),
+                trailer_url = COALESCE($9, trailer_url)
             WHERE id = $1
           `,
           [
@@ -289,6 +293,7 @@ export async function editAction(
             updates.totalSeasons ?? undefined,
             updates.totalEpisodes ?? undefined,
             updates.episodeRuntimeMinutes ?? undefined,
+            updates.trailerUrl ?? undefined,
           ],
         );
       }

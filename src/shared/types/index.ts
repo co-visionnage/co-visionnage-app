@@ -14,6 +14,7 @@ export interface Series {
   totalSeasons?: number;
   totalEpisodes?: number;
   episodeRuntimeMinutes?: number;
+  trailerUrl?: string;
   mediaType: MediaType;
   externalSource?: string;
   externalId?: string;
@@ -30,6 +31,7 @@ export type SeriesData = {
   totalSeasons?: number;
   totalEpisodes?: number;
   episodeRuntimeMinutes?: number;
+  trailerUrl?: string;
   mediaType: MediaType;
   externalSource?: string;
   externalId?: string;

@@ -47,6 +47,7 @@ type SeriesRow = {
   total_seasons: number | null;
   total_episodes: number | null;
   episode_runtime_minutes: number | null;
+  trailer_url: string | null;
   media_type: MediaType;
   external_source: string | null;
   external_id: string | null;
@@ -104,6 +105,7 @@ async function getFamilySeriesWithClient(
         series.total_seasons,
         series.total_episodes,
         series.episode_runtime_minutes,
+        series.trailer_url,
         series.media_type,
         series.external_source,
         series.external_id,
@@ -132,6 +134,7 @@ async function getFamilySeriesWithClient(
     totalSeasons: row.total_seasons ?? undefined,
     totalEpisodes: row.total_episodes ?? undefined,
     episodeRuntimeMinutes: row.episode_runtime_minutes ?? undefined,
+    trailerUrl: row.trailer_url ?? undefined,
     mediaType: row.media_type,
     externalSource: row.external_source ?? undefined,
     externalId: row.external_id ?? undefined,
@@ -155,6 +158,7 @@ export async function getSeriesById(seriesId: string) {
           series.total_seasons,
           series.total_episodes,
           series.episode_runtime_minutes,
+          series.trailer_url,
           series.media_type,
           series.external_source,
           series.external_id,
@@ -188,6 +192,7 @@ export async function getSeriesById(seriesId: string) {
         totalSeasons: row.total_seasons ?? undefined,
         totalEpisodes: row.total_episodes ?? undefined,
         episodeRuntimeMinutes: row.episode_runtime_minutes ?? undefined,
+        trailerUrl: row.trailer_url ?? undefined,
         mediaType: row.media_type,
         externalSource: row.external_source ?? undefined,
         externalId: row.external_id ?? undefined,

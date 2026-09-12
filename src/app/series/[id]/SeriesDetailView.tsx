@@ -7,6 +7,7 @@ import { SeriesPoster } from '@/entities/series';
 import { EpisodeProgressControl, SeriesDiscussionDialog } from '@/features';
 import { checkSeriesUpdatesAction } from '@/shared/actions/season-tracking-postgres';
 import { useAppSounds } from '@/shared/hooks';
+import { toYoutubeEmbedUrl } from '@/shared/lib/youtube';
 import { Series } from '@/shared/types';
 import { Badge, Button } from '@/shared/ui/lib';
 
@@ -20,6 +21,10 @@ export const SeriesDetailView = ({ series }: SeriesDetailViewProperties) => {
   const [isCopied, setIsCopied] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const [checkMessage, setCheckMessage] = useState<string | null>();
+
+  const trailerEmbedUrl = series.trailerUrl
+    ? toYoutubeEmbedUrl(series.trailerUrl)
+    : undefined;
 
   const handleShare = async () => {
     playClick();
@@ -97,6 +102,18 @@ export const SeriesDetailView = ({ series }: SeriesDetailViewProperties) => {
               Ваш отзыв
             </p>
             <p className='font-bold text-black'>{series.comment}</p>
+          </div>
+        ) : undefined}
+
+        {trailerEmbedUrl ? (
+          <div className='aspect-video w-full overflow-hidden border-2 border-black'>
+            <iframe
+              allowFullScreen
+              allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture'
+              className='h-full w-full'
+              src={trailerEmbedUrl}
+              title={`Трейлер: ${series.title}`}
+            />
           </div>
         ) : undefined}
 

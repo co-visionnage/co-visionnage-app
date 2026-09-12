@@ -1185,9 +1185,16 @@ CREATE OR REPLACE FUNCTION public.delete_own_profile(p_user_id uuid)
 RETURNS void
 LANGUAGE sql
 SECURITY DEFINER
-AS $$
+AS $
   DELETE FROM public.profiles WHERE id = p_user_id;
-$$;
+$;
+
+-- =========================================================================
+-- 013: trailer link
+-- =========================================================================
+
+ALTER TABLE public.family_series
+  ADD COLUMN IF NOT EXISTS trailer_url text;
 
 GRANT USAGE ON SCHEMA public TO app_user;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user;
