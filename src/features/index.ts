@@ -1,3 +1,4 @@
+export { DeleteAccountButton } from './account-deletion';
 export { AddSeriesDialog } from './add-series';
 export { SeriesDiscussionDialog } from './discuss-series';
 export { EditSeriesDialog } from './edit-series';
