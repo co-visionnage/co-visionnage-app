@@ -52,8 +52,20 @@ async function sendToSubscriptions(
           },
           JSON.stringify(payload),
         );
-      } catch {
-        // best-effort — a dead subscription (410/404) is pruned lazily on next subscribe, not here
+      } catch (error) {
+        // A dead subscription (410/404) is expected — it's pruned lazily on
+        // next subscribe, not here — so only genuinely unexpected failures
+        // (5xx, network errors) are worth logging.
+        const isDeadSubscription =
+          error instanceof webpush.WebPushError &&
+          (error.statusCode === 404 || error.statusCode === 410);
+
+        if (!isDeadSubscription) {
+          console.error(
+            `notifyFamily: push send failed for ${subscription.endpoint}`,
+            error,
+          );
+        }
       }
     }),
   );

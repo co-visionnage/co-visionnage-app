@@ -31,7 +31,14 @@ export async function POST(request: NextRequest) {
   const results: { title: string; airDate: string; label: string }[] = [];
 
   for (const series of tracked.rows) {
-    const next = await findNextEpisode(series.external_id).catch(() => {});
+    const next = await findNextEpisode(series.external_id).catch(
+      (error: unknown) => {
+        console.error(
+          `check-next-episode: lookup failed for "${series.title}" (${series.external_id})`,
+          error,
+        );
+      },
+    );
     if (!next) continue;
 
     await query('SELECT public.update_series_next_episode($1, $2, $3)', [
