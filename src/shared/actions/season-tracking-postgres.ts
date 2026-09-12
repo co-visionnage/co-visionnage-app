@@ -87,20 +87,20 @@ export async function checkSeriesUpdatesAction(
       const notificationTitle = 'Вышел новый сезон!';
       const notificationBody = `У «${title}» теперь ${newTotalSeasons} сезон(ов)`;
 
-      await withUserContext(user.id, async (client) => {
+      const emails = await withUserContext(user.id, async (client) => {
         await notifyFamily(client, familyId!, user.id, {
           title: notificationTitle,
           body: notificationBody,
           url: '/',
         });
 
-        const emails = await getFamilyMemberEmailsWithClient(
-          client,
-          familyId!,
-          user.id,
-        );
-        await notifyFamilyByEmail(emails, notificationTitle, notificationBody);
+        return getFamilyMemberEmailsWithClient(client, familyId!, user.id);
       });
+
+      // Sent outside the transaction: notifyFamilyByEmail is an external HTTP
+      // call to Resend, and holding a pool connection (BEGIN/COMMIT) open for
+      // its duration would let a slow/down email provider exhaust the pool.
+      await notifyFamilyByEmail(emails, notificationTitle, notificationBody);
     }
 
     return { updated, newTotalSeasons };

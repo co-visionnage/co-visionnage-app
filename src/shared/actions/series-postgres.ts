@@ -17,20 +17,20 @@ async function notifyFamilyOfEvent(
   body: string,
 ) {
   try {
-    await withUserContext(userId, async (client) => {
+    const emails = await withUserContext(userId, async (client) => {
       await notifyFamily(client, familyId, userId, {
         title,
         body,
         url: '/',
       });
 
-      const emails = await getFamilyMemberEmailsWithClient(
-        client,
-        familyId,
-        userId,
-      );
-      await notifyFamilyByEmail(emails, title, body);
+      return getFamilyMemberEmailsWithClient(client, familyId, userId);
     });
+
+    // Sent outside the transaction: notifyFamilyByEmail is an external HTTP
+    // call to Resend, and holding a pool connection (BEGIN/COMMIT) open for
+    // its duration would let a slow/down email provider exhaust the pool.
+    await notifyFamilyByEmail(emails, title, body);
   } catch (error) {
     // best-effort — notification failures must never break the underlying
     // action, but a silent failure here is invisible without this log
