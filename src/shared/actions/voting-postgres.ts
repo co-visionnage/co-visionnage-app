@@ -39,16 +39,14 @@ export async function createWatchPollAction(
 
       const pollId = pollResult.rows[0].id;
 
-      for (const seriesId of uniqueSeriesIds) {
-        await client.query(
-          `
-            INSERT INTO public.family_watch_poll_options (poll_id, series_id)
-            VALUES ($1, $2)
-            ON CONFLICT DO NOTHING
-          `,
-          [pollId, seriesId],
-        );
-      }
+      await client.query(
+        `
+          INSERT INTO public.family_watch_poll_options (poll_id, series_id)
+          SELECT $1, series_id FROM UNNEST($2::uuid[]) AS series_id
+          ON CONFLICT DO NOTHING
+        `,
+        [pollId, uniqueSeriesIds],
+      );
     });
   } catch (error) {
     return {
