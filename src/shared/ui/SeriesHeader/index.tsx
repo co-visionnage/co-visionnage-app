@@ -4,6 +4,7 @@ import { Github, LogOut, Mail, Settings2, UserPlus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 
+import { DeleteAccountButton } from '@/features/account-deletion';
 import { PushNotificationToggle } from '@/features/push-notifications';
 import { createClient } from '@/shared/api/postgres/client';
 import { useAppSounds, useUiPreferences } from '@/shared/hooks';
@@ -262,6 +263,8 @@ export const SeriesHeader = ({
                       </a>
                     </div>
                   </div>
+
+                  <DeleteAccountButton />
                 </div>
               </DialogContent>
             </Dialog>
