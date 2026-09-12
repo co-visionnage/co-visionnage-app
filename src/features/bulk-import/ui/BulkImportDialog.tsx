@@ -23,7 +23,9 @@ import {
 } from '@/shared/ui/lib';
 
 interface BulkImportDialogProperties {
-  onAdd: (series: SeriesData) => void | Promise<void>;
+  onAddMany: (
+    series: SeriesData[],
+  ) => Promise<{ error?: string; addedCount?: number }>;
 }
 
 function toSeriesData(item: ImportedSeries): SeriesData {
@@ -41,7 +43,7 @@ function toSeriesData(item: ImportedSeries): SeriesData {
   };
 }
 
-export const BulkImportDialog = ({ onAdd }: BulkImportDialogProperties) => {
+export const BulkImportDialog = ({ onAddMany }: BulkImportDialogProperties) => {
   const { playClick, playSuccess } = useAppSounds();
   const [isOpen, setIsOpen] = useState(false);
   const [items, setItems] = useState<ImportedSeries[]>([]);
@@ -129,12 +131,19 @@ export const BulkImportDialog = ({ onAdd }: BulkImportDialogProperties) => {
   const handleImportSelected = async () => {
     playClick();
     setIsImporting(true);
+    setError(undefined);
 
     try {
       const selected = items.filter((item) => selectedIds.has(itemKey(item)));
-      for (const item of selected) {
-        await onAdd(toSeriesData(item));
+      const result = await onAddMany(
+        selected.map((item) => toSeriesData(item)),
+      );
+
+      if (result.error) {
+        setError(result.error);
+        return;
       }
+
       playSuccess();
       setItems([]);
       setSelectedIds(new Set());
