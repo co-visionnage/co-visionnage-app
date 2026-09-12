@@ -6,6 +6,7 @@ import {
   FamilyStats,
   FamilyStatsGenre,
   FamilyStatsMonth,
+  MediaType,
   Recommendation,
   SeriesComment,
   SeriesProgress,
@@ -14,6 +15,7 @@ import {
   WatchHistoryEntry,
   WatchPoll,
   WatchPollOption,
+  YearWrapped,
 } from '@/shared/types';
 import { requireCurrentUser, withUserContext } from './server';
 
@@ -46,6 +48,9 @@ type SeriesRow = {
   total_episodes: number | null;
   episode_runtime_minutes: number | null;
   trailer_url: string | null;
+  media_type: MediaType;
+  external_source: string | null;
+  external_id: string | null;
 };
 
 export async function getCurrentMembership() {
@@ -101,6 +106,9 @@ async function getFamilySeriesWithClient(
         series.total_episodes,
         series.episode_runtime_minutes,
         series.trailer_url,
+        series.media_type,
+        series.external_source,
+        series.external_id,
         status.status,
         status.rating,
         status.comment
@@ -127,6 +135,9 @@ async function getFamilySeriesWithClient(
     totalEpisodes: row.total_episodes ?? undefined,
     episodeRuntimeMinutes: row.episode_runtime_minutes ?? undefined,
     trailerUrl: row.trailer_url ?? undefined,
+    mediaType: row.media_type,
+    externalSource: row.external_source ?? undefined,
+    externalId: row.external_id ?? undefined,
   }));
 }
 
@@ -147,7 +158,10 @@ export async function getSeriesById(seriesId: string) {
           series.total_seasons,
           series.total_episodes,
           series.episode_runtime_minutes,
-        series.trailer_url,
+          series.trailer_url,
+          series.media_type,
+          series.external_source,
+          series.external_id,
           status.status,
           status.rating,
           status.comment
@@ -179,6 +193,9 @@ export async function getSeriesById(seriesId: string) {
         totalEpisodes: row.total_episodes ?? undefined,
         episodeRuntimeMinutes: row.episode_runtime_minutes ?? undefined,
         trailerUrl: row.trailer_url ?? undefined,
+        mediaType: row.media_type,
+        externalSource: row.external_source ?? undefined,
+        externalId: row.external_id ?? undefined,
       },
     };
   });
@@ -527,6 +544,92 @@ export async function getFamilyStats(familyId: string) {
         }),
       ),
     } satisfies FamilyStats;
+  });
+}
+
+export async function getYearWrapped(familyId: string, year: number) {
+  const user = await requireCurrentUser();
+
+  return withUserContext(user.id, async (client) => {
+    const totalsResult = await client.query<{
+      total_hours: string;
+      total_watched: string;
+    }>(
+      `
+        SELECT
+          COALESCE(
+            SUM(
+              COALESCE(series.total_episodes, 1) *
+              COALESCE(series.episode_runtime_minutes, 45)
+            ) / 60.0,
+            0
+          ) AS total_hours,
+          COUNT(*) AS total_watched
+        FROM public.family_series_status status
+        JOIN public.family_series series ON series.id = status.series_id
+        WHERE series.family_id = $1
+          AND status.status = 'watched'
+          AND EXTRACT(YEAR FROM COALESCE(status.watched_at, status.updated_at)) = $2
+      `,
+      [familyId, year],
+    );
+
+    const topGenreResult = await client.query<{ genre: string }>(
+      `
+        SELECT genre
+        FROM public.family_series series
+        JOIN public.family_series_status status ON status.series_id = series.id
+        CROSS JOIN LATERAL UNNEST(series.genres) AS genre
+        WHERE series.family_id = $1
+          AND status.status = 'watched'
+          AND EXTRACT(YEAR FROM COALESCE(status.watched_at, status.updated_at)) = $2
+        GROUP BY genre
+        ORDER BY COUNT(*) DESC
+        LIMIT 1
+      `,
+      [familyId, year],
+    );
+
+    const bestMonthResult = await client.query<{ month: string }>(
+      `
+        SELECT TO_CHAR(COALESCE(status.watched_at, status.updated_at), 'YYYY-MM') AS month
+        FROM public.family_series_status status
+        JOIN public.family_series series ON series.id = status.series_id
+        WHERE series.family_id = $1
+          AND status.status = 'watched'
+          AND EXTRACT(YEAR FROM COALESCE(status.watched_at, status.updated_at)) = $2
+        GROUP BY month
+        ORDER BY COUNT(*) DESC
+        LIMIT 1
+      `,
+      [familyId, year],
+    );
+
+    const topRatedResult = await client.query<{ title: string }>(
+      `
+        SELECT series.title
+        FROM public.family_series_status status
+        JOIN public.family_series series ON series.id = status.series_id
+        WHERE series.family_id = $1
+          AND status.status = 'watched'
+          AND status.rating IS NOT NULL
+          AND EXTRACT(YEAR FROM COALESCE(status.watched_at, status.updated_at)) = $2
+        ORDER BY status.rating DESC, status.watched_at DESC
+        LIMIT 1
+      `,
+      [familyId, year],
+    );
+
+    const totals = totalsResult.rows[0];
+
+    return {
+      year,
+      totalHoursWatched: Math.round(Number(totals?.total_hours ?? 0)),
+      totalWatchedCount: Number(totals?.total_watched ?? 0),
+      topGenre: topGenreResult.rows[0]?.genre,
+      bestMonth: bestMonthResult.rows[0]?.month,
+      topRatedTitle: topRatedResult.rows[0]?.title,
+    } satisfies YearWrapped;
   });
 }
 

@@ -997,7 +997,200 @@ CREATE POLICY family_series_status_select_family
   );
 
 -- =========================================================================
--- 009: trailer link
+-- 009: distinguish series vs. movies
+--
+-- Movies don't have seasons/episodes, so total_seasons/total_episodes stay
+-- meaningless for them; the app hides the episode-progress UI for movies
+-- based on this column instead of inferring it from those fields.
+-- =========================================================================
+
+ALTER TABLE public.family_series
+  ADD COLUMN IF NOT EXISTS media_type varchar(10) NOT NULL DEFAULT 'series'
+    CHECK (media_type IN ('series', 'movie'));
+
+-- =========================================================================
+-- 010: track new-season releases for series imported from an external
+-- catalog (Kinopoisk/OMDb).
+--
+-- The scheduled check runs without a logged-in user, so the ordinary RLS
+-- path (current_user_id() driven) can't see or touch any family's rows.
+-- These three functions are SECURITY DEFINER with no caller check — they
+-- are only ever meant to be called from the trusted /api/cron route, which
+-- is itself gated by a server-side secret before it touches the database.
+-- They must never be exposed to arbitrary client-supplied family ids.
+-- =========================================================================
+
+ALTER TABLE public.family_series
+  ADD COLUMN IF NOT EXISTS external_source varchar(20),
+  ADD COLUMN IF NOT EXISTS external_id text;
+
+CREATE OR REPLACE FUNCTION public.get_series_with_external_ids()
+RETURNS TABLE (
+  id uuid,
+  family_id uuid,
+  title text,
+  external_source varchar(20),
+  external_id text,
+  total_seasons integer,
+  total_episodes integer
+)
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT id, family_id, title, external_source, external_id, total_seasons, total_episodes
+  FROM public.family_series
+  WHERE external_id IS NOT NULL
+    AND external_source IS NOT NULL
+    AND media_type = 'series';
+$$;
+
+CREATE OR REPLACE FUNCTION public.update_series_season_tracking(
+  target_series_id uuid,
+  new_total_seasons integer,
+  new_total_episodes integer
+)
+RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  UPDATE public.family_series
+  SET total_seasons = new_total_seasons,
+      total_episodes = COALESCE(new_total_episodes, total_episodes)
+  WHERE id = target_series_id;
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_family_push_subscriptions_system(
+  target_family_id uuid
+)
+RETURNS TABLE (endpoint text, p256dh text, auth text)
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT sub.endpoint, sub.p256dh, sub.auth
+  FROM public.push_subscriptions sub
+  JOIN public.family_members member ON member.user_id = sub.user_id
+  WHERE member.family_id = target_family_id;
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_family_member_emails_system(
+  target_family_id uuid
+)
+RETURNS TABLE (email text)
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT profile.email
+  FROM public.family_members member
+  JOIN public.profiles profile ON profile.id = member.user_id
+  WHERE member.family_id = target_family_id;
+$$;
+
+-- =========================================================================
+-- 011: "you haven't continued X in a while" nudges
+--
+-- Same story as the season-tracking cron: this runs with no logged-in
+-- user, so it needs its own narrowly-scoped SECURITY DEFINER functions.
+-- last_reminded_at throttles repeat nudges for the same series/user pair
+-- to once a week, regardless of how often the cron job itself runs.
+-- =========================================================================
+
+ALTER TABLE public.family_series_progress
+  ADD COLUMN IF NOT EXISTS last_reminded_at timestamptz;
+
+CREATE OR REPLACE FUNCTION public.get_stale_progress(days_threshold integer)
+RETURNS TABLE (
+  series_id uuid,
+  user_id uuid,
+  title text,
+  current_season integer,
+  current_episode integer
+)
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT
+    progress.series_id,
+    progress.user_id,
+    series.title,
+    progress.current_season,
+    progress.current_episode
+  FROM public.family_series_progress progress
+  JOIN public.family_series series ON series.id = progress.series_id
+  JOIN public.family_series_status status
+    ON status.series_id = progress.series_id
+   AND status.user_id = progress.user_id
+  WHERE status.status = 'to-watch'
+    AND progress.current_episode > 0
+    AND progress.updated_at < NOW() - (days_threshold || ' days')::interval
+    AND (
+      progress.last_reminded_at IS NULL
+      OR progress.last_reminded_at < NOW() - INTERVAL '7 days'
+    );
+$$;
+
+CREATE OR REPLACE FUNCTION public.mark_progress_reminded(
+  target_series_id uuid,
+  target_user_id uuid
+)
+RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+AS $$
+  UPDATE public.family_series_progress
+  SET last_reminded_at = NOW()
+  WHERE series_id = target_series_id
+    AND user_id = target_user_id;
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_user_push_subscriptions_system(
+  target_user_id uuid
+)
+RETURNS TABLE (endpoint text, p256dh text, auth text)
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT endpoint, p256dh, auth
+  FROM public.push_subscriptions
+  WHERE user_id = target_user_id;
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_user_email_system(target_user_id uuid)
+RETURNS text
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+AS $$
+  SELECT email FROM public.profiles WHERE id = target_user_id;
+$$;
+
+-- =========================================================================
+-- 012: self-service account deletion
+--
+-- No RLS policy grants DELETE on profiles (a user closing their own
+-- account is the one case that needs it), so this needs a narrowly-scoped
+-- SECURITY DEFINER function rather than a policy that would let a user
+-- delete arbitrary rows. Every family_*/push_subscriptions/app_sessions
+-- row referencing this profile cascades away with it; if the account owns
+-- a family that still has other members, the app is expected to block the
+-- deletion before calling this (the family's own ON DELETE CASCADE would
+-- otherwise take the whole family, and everyone else's data, down with it).
+-- =========================================================================
+
+CREATE OR REPLACE FUNCTION public.delete_own_profile(p_user_id uuid)
+RETURNS void
+LANGUAGE sql
+SECURITY DEFINER
+AS $
+  DELETE FROM public.profiles WHERE id = p_user_id;
+$;
+
+-- =========================================================================
+-- 013: trailer link
 -- =========================================================================
 
 ALTER TABLE public.family_series

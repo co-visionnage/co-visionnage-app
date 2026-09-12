@@ -80,7 +80,9 @@ export const ToWatchCard = ({
         ))}
       </div>
 
-      <EpisodeProgressControl series={series} />
+      {series.mediaType === 'movie' ? undefined : (
+        <EpisodeProgressControl series={series} />
+      )}
       <SeriesDiscussionDialog seriesId={series.id} seriesTitle={series.title} />
     </SeriesCard>
   );

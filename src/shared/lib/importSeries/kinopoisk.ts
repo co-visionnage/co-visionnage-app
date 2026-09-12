@@ -36,21 +36,39 @@ export async function searchKinopoisk(
 
   const data = (await response.json()) as KinopoiskSearchResponse;
 
-  return (data.docs ?? []).map((doc): ImportedSeries => {
-    const totalEpisodes = doc.seasonsInfo?.reduce(
-      (sum, season) => sum + (season.episodesCount ?? 0),
-      0,
-    );
+  return (data.docs ?? []).map(mapKinopoiskDoc);
+}
 
-    return {
-      externalId: String(doc.id),
-      source: 'kinopoisk',
-      title: doc.name ?? doc.alternativeName ?? 'Без названия',
-      year: doc.year ?? new Date().getFullYear(),
-      genres: (doc.genres ?? []).map((genre) => genre.name),
-      image_url: doc.poster?.url ?? doc.poster?.previewUrl,
-      totalSeasons: doc.seasonsInfo?.length || undefined,
-      totalEpisodes: totalEpisodes || undefined,
-    };
+export async function getKinopoiskById(
+  id: string,
+): Promise<ImportedSeries | undefined> {
+  if (!ENV.KINOPOISK_API_KEY) return undefined;
+
+  const response = await fetch(`https://api.kinopoisk.dev/v1.4/movie/${id}`, {
+    headers: { 'X-API-KEY': ENV.KINOPOISK_API_KEY },
+    cache: 'no-store',
   });
+
+  if (!response.ok) return undefined;
+
+  const doc = (await response.json()) as KinopoiskDoc;
+  return mapKinopoiskDoc(doc);
+}
+
+function mapKinopoiskDoc(doc: KinopoiskDoc): ImportedSeries {
+  const totalEpisodes = doc.seasonsInfo?.reduce(
+    (sum, season) => sum + (season.episodesCount ?? 0),
+    0,
+  );
+
+  return {
+    externalId: String(doc.id),
+    source: 'kinopoisk',
+    title: doc.name ?? doc.alternativeName ?? 'Без названия',
+    year: doc.year ?? new Date().getFullYear(),
+    genres: (doc.genres ?? []).map((genre) => genre.name),
+    image_url: doc.poster?.url ?? doc.poster?.previewUrl,
+    totalSeasons: doc.seasonsInfo?.length || undefined,
+    totalEpisodes: totalEpisodes || undefined,
+  };
 }

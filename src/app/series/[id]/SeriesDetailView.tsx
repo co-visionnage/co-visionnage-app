@@ -1,10 +1,11 @@
 'use client';
 
-import { Share2 } from 'lucide-react';
+import { RefreshCw, Share2 } from 'lucide-react';
 import { useState } from 'react';
 
 import { SeriesPoster } from '@/entities/series';
 import { EpisodeProgressControl, SeriesDiscussionDialog } from '@/features';
+import { checkSeriesUpdatesAction } from '@/shared/actions/season-tracking-postgres';
 import { useAppSounds } from '@/shared/hooks';
 import { toYoutubeEmbedUrl } from '@/shared/lib/youtube';
 import { Series } from '@/shared/types';
@@ -18,6 +19,8 @@ interface SeriesDetailViewProperties {
 export const SeriesDetailView = ({ series }: SeriesDetailViewProperties) => {
   const { playClick } = useAppSounds();
   const [isCopied, setIsCopied] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
+  const [checkMessage, setCheckMessage] = useState<string | null>();
 
   const trailerEmbedUrl = series.trailerUrl
     ? toYoutubeEmbedUrl(series.trailerUrl)
@@ -28,6 +31,24 @@ export const SeriesDetailView = ({ series }: SeriesDetailViewProperties) => {
     await navigator.clipboard.writeText(globalThis.location.href);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  const handleCheckUpdates = async () => {
+    playClick();
+    setIsChecking(true);
+    setCheckMessage(undefined);
+
+    const result = await checkSeriesUpdatesAction(series.id);
+
+    if (result.error) {
+      setCheckMessage(result.error);
+    } else if (result.updated) {
+      setCheckMessage(`Нашли новый сезон! Теперь ${result.newTotalSeasons}.`);
+    } else {
+      setCheckMessage('Новых сезонов пока нет.');
+    }
+
+    setIsChecking(false);
   };
 
   return (
@@ -54,6 +75,9 @@ export const SeriesDetailView = ({ series }: SeriesDetailViewProperties) => {
         </div>
 
         <div className='flex flex-wrap items-center gap-2'>
+          <Badge className='border-2 border-black bg-purple-300 font-bold text-black'>
+            {series.mediaType === 'movie' ? 'ФИЛЬМ' : 'СЕРИАЛ'}
+          </Badge>
           <Badge className='border-2 border-black bg-yellow-300 font-bold text-black'>
             {series.year}
           </Badge>
@@ -93,7 +117,29 @@ export const SeriesDetailView = ({ series }: SeriesDetailViewProperties) => {
           </div>
         ) : undefined}
 
-        <EpisodeProgressControl series={series} />
+        {series.mediaType === 'movie' ? undefined : (
+          <EpisodeProgressControl series={series} />
+        )}
+
+        {series.mediaType === 'series' && series.externalId ? (
+          <div className='border-2 border-black bg-purple-100 p-3'>
+            <Button
+              className='w-full border-2 border-black bg-white font-black text-black hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60'
+              disabled={isChecking}
+              onClick={() => void handleCheckUpdates()}
+            >
+              <RefreshCw
+                className={`mr-2 h-4 w-4 ${isChecking ? 'animate-spin' : ''}`}
+              />
+              {isChecking ? 'Проверяем...' : 'Проверить новые сезоны'}
+            </Button>
+            {checkMessage ? (
+              <p className='mt-2 text-center text-sm font-bold text-black'>
+                {checkMessage}
+              </p>
+            ) : undefined}
+          </div>
+        ) : undefined}
         <SeriesDiscussionDialog
           seriesId={series.id}
           seriesTitle={series.title}

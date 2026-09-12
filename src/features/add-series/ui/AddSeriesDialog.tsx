@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { ImportSeriesSearch } from '@/features/import-series';
 import { uploadSeriesImage } from '@/shared/api/storage/client';
 import { useAppSounds } from '@/shared/hooks';
-import { SeriesData, SeriesStatus } from '@/shared/types';
+import { MediaType, SeriesData, SeriesStatus } from '@/shared/types';
 import {
   Button,
   Dialog,
@@ -49,6 +49,9 @@ export const AddSeriesDialog = ({ onAdd }: AddSeriesDialogProperties) => {
     totalSeasons: undefined as number | undefined,
     totalEpisodes: undefined as number | undefined,
     trailerUrl: '',
+    mediaType: 'series' as MediaType,
+    externalSource: undefined as string | undefined,
+    externalId: undefined as string | undefined,
   });
 
   const handleImportSelect = (imported: ImportedSeries) => {
@@ -60,6 +63,8 @@ export const AddSeriesDialog = ({ onAdd }: AddSeriesDialogProperties) => {
       imageFile: undefined,
       totalSeasons: imported.totalSeasons,
       totalEpisodes: imported.totalEpisodes,
+      externalSource: imported.source,
+      externalId: imported.externalId,
     }));
     setGenreInput(imported.genres.join(', '));
   };
@@ -101,9 +106,14 @@ export const AddSeriesDialog = ({ onAdd }: AddSeriesDialogProperties) => {
         rating: newSeries.status === 'watched' ? newSeries.rating : undefined,
         comment:
           newSeries.status === 'watched' ? newSeries.comment.trim() : undefined,
-        totalSeasons: newSeries.totalSeasons,
-        totalEpisodes: newSeries.totalEpisodes,
+        totalSeasons:
+          newSeries.mediaType === 'movie' ? undefined : newSeries.totalSeasons,
+        totalEpisodes:
+          newSeries.mediaType === 'movie' ? undefined : newSeries.totalEpisodes,
         trailerUrl: newSeries.trailerUrl.trim() || undefined,
+        mediaType: newSeries.mediaType,
+        externalSource: newSeries.externalSource,
+        externalId: newSeries.externalId,
       });
 
       setNewSeries({
@@ -117,6 +127,9 @@ export const AddSeriesDialog = ({ onAdd }: AddSeriesDialogProperties) => {
         totalSeasons: undefined,
         totalEpisodes: undefined,
         trailerUrl: '',
+        mediaType: 'series',
+        externalSource: undefined,
+        externalId: undefined,
       });
       setGenreInput('');
       setIsOpen(false);
@@ -198,6 +211,24 @@ export const AddSeriesDialog = ({ onAdd }: AddSeriesDialogProperties) => {
                 setNewSeries({ ...newSeries, year: Number(event.target.value) })
               }
             />
+          </div>
+
+          <div className='rotate-1 transform border-2 border-black bg-lime-300 p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'>
+            <Label className='brutal-font font-bold text-black'>ТИП</Label>
+            <Select
+              value={newSeries.mediaType}
+              onValueChange={(value: MediaType) =>
+                setNewSeries({ ...newSeries, mediaType: value })
+              }
+            >
+              <SelectTrigger className='brutal-font border-2 border-black bg-white font-bold text-black'>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className='border-2 border-black bg-pink-300 font-bold'>
+                <SelectItem value='series'>СЕРИАЛ</SelectItem>
+                <SelectItem value='movie'>ФИЛЬМ</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className='-rotate-1 transform border-2 border-black bg-purple-400 p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'>

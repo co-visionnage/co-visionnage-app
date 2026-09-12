@@ -4,6 +4,7 @@ import { Github, LogOut, Mail, Settings2, UserPlus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 
+import { DeleteAccountButton } from '@/features/account-deletion';
 import { PushNotificationToggle } from '@/features/push-notifications';
 import { createClient } from '@/shared/api/postgres/client';
 import { useAppSounds, useUiPreferences } from '@/shared/hooks';
@@ -238,6 +239,32 @@ export const SeriesHeader = ({
                       }
                     />
                   </label>
+
+                  <div className='border-4 border-black bg-white p-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'>
+                    <span className='mb-3 block font-black text-black'>
+                      Скачать мои данные
+                    </span>
+                    <div className='grid grid-cols-2 gap-2'>
+                      <a
+                        download
+                        className='border-2 border-black bg-lime-300 p-2 text-center text-xs font-black text-black hover:bg-lime-400'
+                        href='/api/export/data?format=json'
+                        onClick={() => playClick()}
+                      >
+                        JSON
+                      </a>
+                      <a
+                        download
+                        className='border-2 border-black bg-cyan-300 p-2 text-center text-xs font-black text-black hover:bg-cyan-400'
+                        href='/api/export/data?format=csv'
+                        onClick={() => playClick()}
+                      >
+                        CSV
+                      </a>
+                    </div>
+                  </div>
+
+                  <DeleteAccountButton />
                 </div>
               </DialogContent>
             </Dialog>

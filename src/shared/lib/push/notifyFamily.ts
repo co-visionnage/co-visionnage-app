@@ -25,30 +25,25 @@ function ensureConfigured() {
   return true;
 }
 
-export async function notifyFamily(
-  client: {
-    query: <Row extends Record<string, unknown>>(
-      text: string,
-      values?: unknown[],
-    ) => Promise<{ rows: Row[] }>;
-  },
-  familyId: string,
-  excludeUserId: string,
+type QueryClient = {
+  query: <Row extends Record<string, unknown>>(
+    text: string,
+    values?: unknown[],
+  ) => Promise<{ rows: Row[] }>;
+};
+
+type PushSubscriptionRow = {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+};
+
+async function sendToSubscriptions(
+  subscriptions: PushSubscriptionRow[],
   payload: PushPayload,
 ): Promise<void> {
-  if (!ensureConfigured()) return;
-
-  const { rows } = await client.query<{
-    endpoint: string;
-    p256dh: string;
-    auth: string;
-  }>('SELECT * FROM public.get_family_push_subscriptions($1, $2)', [
-    familyId,
-    excludeUserId,
-  ]);
-
   await Promise.all(
-    rows.map(async (subscription) => {
+    subscriptions.map(async (subscription) => {
       try {
         await webpush.sendNotification(
           {
@@ -62,4 +57,55 @@ export async function notifyFamily(
       }
     }),
   );
+}
+
+export async function notifyFamily(
+  client: QueryClient,
+  familyId: string,
+  excludeUserId: string,
+  payload: PushPayload,
+): Promise<void> {
+  if (!ensureConfigured()) return;
+
+  const { rows } = await client.query<PushSubscriptionRow>(
+    'SELECT * FROM public.get_family_push_subscriptions($1, $2)',
+    [familyId, excludeUserId],
+  );
+
+  await sendToSubscriptions(rows, payload);
+}
+
+// System variant for scheduled jobs that don't run in a logged-in user's
+// request — see the SECURITY DEFINER note on get_family_push_subscriptions_system
+// in database/init.sql for why this bypasses the usual membership check.
+export async function notifyFamilySystem(
+  client: QueryClient,
+  familyId: string,
+  payload: PushPayload,
+): Promise<void> {
+  if (!ensureConfigured()) return;
+
+  const { rows } = await client.query<PushSubscriptionRow>(
+    'SELECT * FROM public.get_family_push_subscriptions_system($1)',
+    [familyId],
+  );
+
+  await sendToSubscriptions(rows, payload);
+}
+
+// Same idea as notifyFamilySystem, but for a single user — used by the
+// inactivity-reminder cron job, which nudges one person, not a family.
+export async function notifyUserSystem(
+  client: QueryClient,
+  userId: string,
+  payload: PushPayload,
+): Promise<void> {
+  if (!ensureConfigured()) return;
+
+  const { rows } = await client.query<PushSubscriptionRow>(
+    'SELECT * FROM public.get_user_push_subscriptions_system($1)',
+    [userId],
+  );
+
+  await sendToSubscriptions(rows, payload);
 }

@@ -1,4 +1,6 @@
 export type AuthMode = 'login' | 'register';
+export type MediaType = 'series' | 'movie';
+
 export interface Series {
   id: string;
   title: string;
@@ -13,6 +15,9 @@ export interface Series {
   totalEpisodes?: number;
   episodeRuntimeMinutes?: number;
   trailerUrl?: string;
+  mediaType: MediaType;
+  externalSource?: string;
+  externalId?: string;
 }
 
 export type SeriesData = {
@@ -27,6 +32,9 @@ export type SeriesData = {
   totalEpisodes?: number;
   episodeRuntimeMinutes?: number;
   trailerUrl?: string;
+  mediaType: MediaType;
+  externalSource?: string;
+  externalId?: string;
 };
 
 export type SeriesStatus = 'watched' | 'to-watch';
@@ -82,6 +90,15 @@ export type FamilyStats = {
   totalWatchedSeries: number;
   byMonth: FamilyStatsMonth[];
   topGenres: FamilyStatsGenre[];
+};
+
+export type YearWrapped = {
+  year: number;
+  totalHoursWatched: number;
+  totalWatchedCount: number;
+  topGenre?: string;
+  bestMonth?: string;
+  topRatedTitle?: string;
 };
 
 export type Recommendation = {
