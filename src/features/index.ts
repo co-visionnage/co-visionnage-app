@@ -4,6 +4,7 @@ export { AchievementsDialog } from './achievements';
 export { ActivityLogDialog } from './activity-log';
 export { SeriesDiscussionDialog } from './discuss-series';
 export { EditSeriesDialog } from './edit-series';
+export { EpisodeCalendarDialog } from './episode-calendar';
 export { FamilyStatsDialog } from './family-stats';
 export { ImportSeriesSearch } from './import-series';
 export { MarkWatchedDialog } from './mark-watched';

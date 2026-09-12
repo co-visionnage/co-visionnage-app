@@ -8,6 +8,7 @@ import { FamilyMembersDialog } from '@/app/_components/FamilyMembersDialog';
 import { AchievementsDialog } from '@/features/achievements';
 import { ActivityLogDialog } from '@/features/activity-log';
 import { AddSeriesDialog } from '@/features/add-series';
+import { EpisodeCalendarDialog } from '@/features/episode-calendar';
 import { FamilyStatsDialog } from '@/features/family-stats';
 import { PickForMeDialog } from '@/features/pick-for-me';
 import { RecommendationsSection } from '@/features/recommendations';
@@ -273,6 +274,7 @@ const SeriesTracker = ({
           <FamilyStatsDialog familyId={family.id} />
           <AchievementsDialog familyId={family.id} />
           <WatchHistoryDialog familyId={family.id} />
+          <EpisodeCalendarDialog series={series} onRefresh={loadSeries} />
           <ActivityLogDialog familyId={family.id} />
           <WatchPollDialog
             familyId={family.id}

@@ -18,6 +18,8 @@ export interface Series {
   mediaType: MediaType;
   externalSource?: string;
   externalId?: string;
+  nextEpisodeAirDate?: string;
+  nextEpisodeLabel?: string;
 }
 
 export type SeriesData = {
