@@ -6,5 +6,6 @@ export { ImportSeriesSearch } from './import-series';
 export { MarkWatchedDialog } from './mark-watched';
 export { RecommendationsSection } from './recommendations';
 export { EpisodeProgressControl } from './track-progress';
+export { TwoFactorSettings } from './two-factor';
 export { WatchHistoryDialog } from './watch-history';
 export { WatchPollDialog } from './watch-poll';

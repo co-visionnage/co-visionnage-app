@@ -84,9 +84,20 @@ export async function POST(request: Request) {
   }
 
   try {
-    await (mode === 'register'
-      ? registerUserSession(email, displayName!, password)
-      : loginUserSession(email, password));
+    if (mode === 'register') {
+      await registerUserSession(email, displayName!, password);
+      return NextResponse.json({ success: true });
+    }
+
+    const result = await loginUserSession(email, password);
+
+    if (result.requiresTwoFactor) {
+      return NextResponse.json({
+        success: true,
+        requiresTwoFactor: true,
+        userId: result.userId,
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

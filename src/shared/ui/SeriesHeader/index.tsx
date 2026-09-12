@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 
 import { PushNotificationToggle } from '@/features/push-notifications';
+import { TwoFactorSettings } from '@/features/two-factor';
 import { createClient } from '@/shared/api/postgres/client';
 import { useAppSounds, useUiPreferences } from '@/shared/hooks';
 import { AppTheme, AuthMode } from '@/shared/types';
@@ -51,6 +52,8 @@ export const SeriesHeader = ({
   const [legalAccepted, setLegalAccepted] = useState(false);
   const [error, setError] = useState<string | null>();
   const [isPending, setIsPending] = useState(false);
+  const [twoFactorUserId, setTwoFactorUserId] = useState<string>();
+  const [twoFactorCode, setTwoFactorCode] = useState('');
 
   const normalizedEmail = email.trim().toLowerCase();
   const normalizedDisplayName = displayName.trim();
@@ -92,7 +95,7 @@ export const SeriesHeader = ({
     setIsPending(true);
 
     try {
-      await client.auth.login({
+      const result = await client.auth.login({
         mode,
         provider: 'email',
         email: normalizedEmail,
@@ -101,6 +104,13 @@ export const SeriesHeader = ({
         confirmPassword,
         legalAccepted,
       });
+
+      if (result.requiresTwoFactor && result.userId) {
+        setTwoFactorUserId(result.userId);
+        setIsPending(false);
+        return;
+      }
+
       globalThis.location.reload();
     } catch (authError) {
       setError(
@@ -109,6 +119,26 @@ export const SeriesHeader = ({
           : 'Не удалось выполнить вход',
       );
     } finally {
+      setIsPending(false);
+    }
+  };
+
+  const handleVerifyTwoFactor = async () => {
+    if (!twoFactorUserId) return;
+
+    playClick();
+    setError(undefined);
+    setIsPending(true);
+
+    try {
+      await client.auth.verifyTwoFactor(twoFactorUserId, twoFactorCode);
+      globalThis.location.reload();
+    } catch (verifyError) {
+      setError(
+        verifyError instanceof Error
+          ? verifyError.message
+          : 'Не удалось подтвердить код',
+      );
       setIsPending(false);
     }
   };
@@ -219,6 +249,8 @@ export const SeriesHeader = ({
 
                   <PushNotificationToggle />
 
+                  <TwoFactorSettings />
+
                   <label className='flex items-center justify-between gap-4 border-4 border-black bg-white p-4 font-black text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'>
                     <span>Звуки интерфейса</span>
                     <Checkbox
@@ -263,11 +295,53 @@ export const SeriesHeader = ({
               <DialogHeader>
                 <div className='mb-4 -rotate-2 border-4 border-black bg-purple-600 p-4 shadow-[5px_5px_0px_0px_rgba(0,0,0,1)]'>
                   <DialogTitle className='text-center text-3xl font-black tracking-tight text-yellow-300 uppercase'>
-                    {mode === 'login' ? 'Вход' : 'Регистрация'}
+                    {twoFactorUserId
+                      ? 'Код подтверждения'
+                      : mode === 'login'
+                        ? 'Вход'
+                        : 'Регистрация'}
                   </DialogTitle>
                 </div>
               </DialogHeader>
 
+              {twoFactorUserId ? (
+                <div className='grid gap-3'>
+                  <p className='text-center text-sm font-bold text-black'>
+                    Введите код из приложения-аутентификатора
+                  </p>
+                  <input
+                    className='h-14 border-4 border-black bg-white px-4 text-center text-lg font-bold outline-none focus:bg-yellow-50'
+                    placeholder='123456'
+                    value={twoFactorCode}
+                    onChange={(event) => setTwoFactorCode(event.target.value)}
+                  />
+                  {error ? (
+                    <p className='border-4 border-black bg-white p-3 text-sm font-black text-red-600'>
+                      {error}
+                    </p>
+                  ) : undefined}
+                  <Button
+                    className='flex h-16 gap-4 border-4 border-black bg-white text-xl font-black text-black shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 disabled:shadow-none'
+                    disabled={isPending || twoFactorCode.length === 0}
+                    onClick={() => void handleVerifyTwoFactor()}
+                  >
+                    {isPending ? 'Проверяем...' : 'Подтвердить'}
+                  </Button>
+                  <Button
+                    className='border-2 border-black bg-gray-100 font-black text-black hover:bg-gray-200'
+                    type='button'
+                    onClick={() => {
+                      playClick();
+                      setTwoFactorUserId(undefined);
+                      setTwoFactorCode('');
+                      setError(undefined);
+                    }}
+                  >
+                    Отмена
+                  </Button>
+                </div>
+              ) : (
+                <>
               <div className='mb-2 grid grid-cols-2 gap-3'>
                 <Button
                   className='border-4 border-black bg-white font-black text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'
@@ -447,6 +521,8 @@ export const SeriesHeader = ({
                   {isPending ? 'Перенаправляем...' : 'Войти по GitHub'}
                 </Button>
               </div>
+                </>
+              )}
             </DialogContent>
           </Dialog>
         )}
