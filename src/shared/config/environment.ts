@@ -23,5 +23,6 @@ export const ENV = {
   KINOPOISK_API_KEY: process.env.KINOPOISK_API_KEY,
   OMDB_API_KEY: process.env.OMDB_API_KEY,
   TRAKT_CLIENT_ID: process.env.TRAKT_CLIENT_ID,
+  TMDB_API_KEY: process.env.TMDB_API_KEY,
   CRON_SECRET: process.env.CRON_SECRET,
 } as const;

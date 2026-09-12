@@ -58,6 +58,8 @@ type SeriesRow = {
   media_type: MediaType;
   external_source: string | null;
   external_id: string | null;
+  next_episode_air_date: string | null;
+  next_episode_label: string | null;
 };
 
 export async function getCurrentMembership() {
@@ -116,6 +118,8 @@ async function getFamilySeriesWithClient(
         series.media_type,
         series.external_source,
         series.external_id,
+        series.next_episode_air_date,
+        series.next_episode_label,
         status.status,
         status.rating,
         status.comment
@@ -145,6 +149,8 @@ async function getFamilySeriesWithClient(
     mediaType: row.media_type,
     externalSource: row.external_source ?? undefined,
     externalId: row.external_id ?? undefined,
+    nextEpisodeAirDate: row.next_episode_air_date ?? undefined,
+    nextEpisodeLabel: row.next_episode_label ?? undefined,
   }));
 }
 
@@ -169,6 +175,8 @@ export async function getSeriesById(seriesId: string) {
           series.media_type,
           series.external_source,
           series.external_id,
+          series.next_episode_air_date,
+          series.next_episode_label,
           status.status,
           status.rating,
           status.comment
@@ -203,6 +211,8 @@ export async function getSeriesById(seriesId: string) {
         mediaType: row.media_type,
         externalSource: row.external_source ?? undefined,
         externalId: row.external_id ?? undefined,
+        nextEpisodeAirDate: row.next_episode_air_date ?? undefined,
+        nextEpisodeLabel: row.next_episode_label ?? undefined,
       },
     };
   });
