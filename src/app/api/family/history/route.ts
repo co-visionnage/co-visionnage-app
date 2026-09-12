@@ -4,6 +4,10 @@ import { getWatchHistory } from '@/shared/api/postgres/queries';
 
 export async function GET(request: NextRequest) {
   const familyId = request.nextUrl.searchParams.get('familyId');
+  const offset = Number.parseInt(
+    request.nextUrl.searchParams.get('offset') ?? '0',
+    10,
+  );
 
   if (!familyId) {
     return NextResponse.json(
@@ -13,8 +17,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const history = await getWatchHistory(familyId);
-    return NextResponse.json({ history });
+    const { entries, hasMore } = await getWatchHistory(
+      familyId,
+      Number.isFinite(offset) && offset > 0 ? offset : 0,
+    );
+    return NextResponse.json({ history: entries, hasMore });
   } catch (error) {
     return NextResponse.json(
       {

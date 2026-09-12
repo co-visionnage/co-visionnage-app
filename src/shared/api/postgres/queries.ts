@@ -896,7 +896,12 @@ type WatchHistoryRow = {
   email: string;
 };
 
-export async function getWatchHistory(familyId: string) {
+const HISTORY_PAGE_SIZE = 50;
+
+export async function getWatchHistory(
+  familyId: string,
+  offset = 0,
+): Promise<{ entries: WatchHistoryEntry[]; hasMore: boolean }> {
   const user = await requireCurrentUser();
 
   return withUserContext(user.id, async (client) => {
@@ -917,21 +922,26 @@ export async function getWatchHistory(familyId: string) {
         WHERE series.family_id = $1
           AND status.status = 'watched'
         ORDER BY COALESCE(status.watched_at, status.updated_at) DESC
-        LIMIT 100
+        LIMIT $2 OFFSET $3
       `,
-      [familyId],
+      [familyId, HISTORY_PAGE_SIZE + 1, offset],
     );
 
-    return result.rows.map(
-      (row): WatchHistoryEntry => ({
-        seriesId: row.series_id,
-        title: row.title,
-        image_url: row.image_url,
-        rating: row.rating ?? undefined,
-        watchedAt: row.watched_at ?? row.updated_at,
-        watchedBy: row.display_name ?? row.email,
-      }),
-    );
+    const hasMore = result.rows.length > HISTORY_PAGE_SIZE;
+
+    return {
+      entries: result.rows.slice(0, HISTORY_PAGE_SIZE).map(
+        (row): WatchHistoryEntry => ({
+          seriesId: row.series_id,
+          title: row.title,
+          image_url: row.image_url,
+          rating: row.rating ?? undefined,
+          watchedAt: row.watched_at ?? row.updated_at,
+          watchedBy: row.display_name ?? row.email,
+        }),
+      ),
+      hasMore,
+    };
   });
 }
 
@@ -1110,7 +1120,12 @@ type FamilyActivityRow = {
   created_at: string;
 };
 
-export async function getFamilyActivityLog(familyId: string) {
+const ACTIVITY_PAGE_SIZE = 50;
+
+export async function getFamilyActivityLog(
+  familyId: string,
+  offset = 0,
+): Promise<{ entries: FamilyActivityEntry[]; hasMore: boolean }> {
   const user = await requireCurrentUser();
 
   return withUserContext(user.id, async (client) => {
@@ -1120,20 +1135,25 @@ export async function getFamilyActivityLog(familyId: string) {
         FROM public.family_activity_log
         WHERE family_id = $1
         ORDER BY created_at DESC
-        LIMIT 100
+        LIMIT $2 OFFSET $3
       `,
-      [familyId],
+      [familyId, ACTIVITY_PAGE_SIZE + 1, offset],
     );
 
-    return result.rows.map(
-      (row): FamilyActivityEntry => ({
-        id: row.id,
-        actorLabel: row.actor_label,
-        action: row.action,
-        targetLabel: row.target_label ?? undefined,
-        detail: row.detail ?? undefined,
-        createdAt: row.created_at,
-      }),
-    );
+    const hasMore = result.rows.length > ACTIVITY_PAGE_SIZE;
+
+    return {
+      entries: result.rows.slice(0, ACTIVITY_PAGE_SIZE).map(
+        (row): FamilyActivityEntry => ({
+          id: row.id,
+          actorLabel: row.actor_label,
+          action: row.action,
+          targetLabel: row.target_label ?? undefined,
+          detail: row.detail ?? undefined,
+          createdAt: row.created_at,
+        }),
+      ),
+      hasMore,
+    };
   });
 }

@@ -50,16 +50,34 @@ export const ActivityLogDialog = ({
   const [isOpen, setIsOpen] = useState(false);
   const [entries, setEntries] = useState<FamilyActivityEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { activity } = await client.getFamilyActivityLog(familyId);
+      const { activity, hasMore: more } =
+        await client.getFamilyActivityLog(familyId);
       setEntries(activity);
+      setHasMore(more);
     } finally {
       setIsLoading(false);
     }
   }, [client, familyId]);
+
+  const loadMore = useCallback(async () => {
+    setIsLoadingMore(true);
+    try {
+      const { activity, hasMore: more } = await client.getFamilyActivityLog(
+        familyId,
+        entries.length,
+      );
+      setEntries((previous) => [...previous, ...activity]);
+      setHasMore(more);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [client, familyId, entries.length]);
 
   useEffect(() => {
     if (isOpen) {
@@ -109,6 +127,16 @@ export const ActivityLogDialog = ({
             <p className='font-bold text-black/60'>Пока ничего не было.</p>
           ) : undefined}
         </div>
+
+        {hasMore ? (
+          <Button
+            className='border-2 border-black bg-white font-bold text-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
+            disabled={isLoadingMore}
+            onClick={() => void loadMore()}
+          >
+            {isLoadingMore ? 'Загружаем...' : 'Показать ещё'}
+          </Button>
+        ) : undefined}
       </DialogContent>
     </Dialog>
   );
