@@ -1185,9 +1185,9 @@ CREATE OR REPLACE FUNCTION public.delete_own_profile(p_user_id uuid)
 RETURNS void
 LANGUAGE sql
 SECURITY DEFINER
-AS $
+AS $$
   DELETE FROM public.profiles WHERE id = p_user_id;
-$;
+$$;
 
 -- =========================================================================
 -- 013: trailer link
