@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { query } from '@/shared/api/postgres/database';
 import { ENV } from '@/shared/config/environment';
+import { mapWithConcurrency } from '@/shared/lib/concurrency';
 import { findNextEpisode } from '@/shared/lib/nextEpisode/tmdb';
+
+const CONCURRENCY = 5;
 
 type TrackedSeries = {
   id: string;
@@ -28,18 +31,27 @@ export async function POST(request: NextRequest) {
     'SELECT * FROM public.get_series_for_episode_check()',
   );
 
+  const updates = await mapWithConcurrency(
+    tracked.rows,
+    CONCURRENCY,
+    async (series) => {
+      const next = await findNextEpisode(series.external_id).catch(
+        (error: unknown) => {
+          console.error(
+            `check-next-episode: lookup failed for "${series.title}" (${series.external_id})`,
+            error,
+          );
+        },
+      );
+      return next ? { series, next } : undefined;
+    },
+  );
+
   const results: { title: string; airDate: string; label: string }[] = [];
 
-  for (const series of tracked.rows) {
-    const next = await findNextEpisode(series.external_id).catch(
-      (error: unknown) => {
-        console.error(
-          `check-next-episode: lookup failed for "${series.title}" (${series.external_id})`,
-          error,
-        );
-      },
-    );
-    if (!next) continue;
+  for (const update of updates) {
+    if (!update) continue;
+    const { series, next } = update;
 
     await query('SELECT public.update_series_next_episode($1, $2, $3)', [
       series.id,
