@@ -4,12 +4,18 @@ import {
   loginUserSession,
   registerUserSession,
 } from '@/shared/api/postgres/auth';
+import { checkRateLimit, getClientIp } from '@/shared/lib/rateLimit';
 import { AuthMode } from '@/shared/types';
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const hasLetterPattern = /[A-Za-zА-Яа-яЁё]/;
 const hasDigitPattern = /\d/;
 const hasSpecialPattern = /[^A-Za-zА-Яа-яЁё0-9]/;
+
+const IP_RATE_LIMIT_MAX_ATTEMPTS = 30;
+const IP_RATE_LIMIT_WINDOW_SECONDS = 15 * 60;
+const EMAIL_RATE_LIMIT_MAX_ATTEMPTS = 5;
+const EMAIL_RATE_LIMIT_WINDOW_SECONDS = 15 * 60;
 
 type RequestBody = {
   mode?: AuthMode;
@@ -30,6 +36,20 @@ export async function POST(request: Request) {
   const password = body?.password ?? '';
   const confirmPassword = body?.confirmPassword ?? '';
   const legalAccepted = body?.legalAccepted === true;
+
+  const clientIp = getClientIp(request);
+  const isWithinIpLimit = await checkRateLimit(
+    `auth:ip:${clientIp}`,
+    IP_RATE_LIMIT_MAX_ATTEMPTS,
+    IP_RATE_LIMIT_WINDOW_SECONDS,
+  );
+
+  if (!isWithinIpLimit) {
+    return NextResponse.json(
+      { error: 'Слишком много попыток. Попробуйте позже.' },
+      { status: 429 },
+    );
+  }
 
   if (!legalAccepted) {
     return NextResponse.json(
@@ -65,6 +85,24 @@ export async function POST(request: Request) {
       },
       { status: 400 },
     );
+  }
+
+  if (mode === 'login') {
+    const isWithinEmailLimit = await checkRateLimit(
+      `auth:login-email:${email}`,
+      EMAIL_RATE_LIMIT_MAX_ATTEMPTS,
+      EMAIL_RATE_LIMIT_WINDOW_SECONDS,
+    );
+
+    if (!isWithinEmailLimit) {
+      return NextResponse.json(
+        {
+          error:
+            'Слишком много попыток входа для этого email. Попробуйте позже.',
+        },
+        { status: 429 },
+      );
+    }
   }
 
   if (mode === 'register') {
