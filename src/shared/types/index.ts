@@ -86,6 +86,15 @@ export type FamilyStats = {
   topGenres: FamilyStatsGenre[];
 };
 
+export type YearWrapped = {
+  year: number;
+  totalHoursWatched: number;
+  totalWatchedCount: number;
+  topGenre?: string;
+  bestMonth?: string;
+  topRatedTitle?: string;
+};
+
 export type Recommendation = {
   id: string;
   title: string;
