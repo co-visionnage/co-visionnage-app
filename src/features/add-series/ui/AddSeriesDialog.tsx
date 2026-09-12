@@ -49,6 +49,8 @@ export const AddSeriesDialog = ({ onAdd }: AddSeriesDialogProperties) => {
     totalSeasons: undefined as number | undefined,
     totalEpisodes: undefined as number | undefined,
     mediaType: 'series' as MediaType,
+    externalSource: undefined as string | undefined,
+    externalId: undefined as string | undefined,
   });
 
   const handleImportSelect = (imported: ImportedSeries) => {
@@ -60,6 +62,8 @@ export const AddSeriesDialog = ({ onAdd }: AddSeriesDialogProperties) => {
       imageFile: undefined,
       totalSeasons: imported.totalSeasons,
       totalEpisodes: imported.totalEpisodes,
+      externalSource: imported.source,
+      externalId: imported.externalId,
     }));
     setGenreInput(imported.genres.join(', '));
   };
@@ -106,6 +110,8 @@ export const AddSeriesDialog = ({ onAdd }: AddSeriesDialogProperties) => {
         totalEpisodes:
           newSeries.mediaType === 'movie' ? undefined : newSeries.totalEpisodes,
         mediaType: newSeries.mediaType,
+        externalSource: newSeries.externalSource,
+        externalId: newSeries.externalId,
       });
 
       setNewSeries({
@@ -119,6 +125,8 @@ export const AddSeriesDialog = ({ onAdd }: AddSeriesDialogProperties) => {
         totalSeasons: undefined,
         totalEpisodes: undefined,
         mediaType: 'series',
+        externalSource: undefined,
+        externalId: undefined,
       });
       setGenreInput('');
       setIsOpen(false);

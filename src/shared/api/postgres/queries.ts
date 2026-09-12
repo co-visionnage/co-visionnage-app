@@ -47,6 +47,8 @@ type SeriesRow = {
   total_episodes: number | null;
   episode_runtime_minutes: number | null;
   media_type: MediaType;
+  external_source: string | null;
+  external_id: string | null;
 };
 
 export async function getCurrentMembership() {
@@ -102,6 +104,8 @@ async function getFamilySeriesWithClient(
         series.total_episodes,
         series.episode_runtime_minutes,
         series.media_type,
+        series.external_source,
+        series.external_id,
         status.status,
         status.rating,
         status.comment
@@ -128,6 +132,8 @@ async function getFamilySeriesWithClient(
     totalEpisodes: row.total_episodes ?? undefined,
     episodeRuntimeMinutes: row.episode_runtime_minutes ?? undefined,
     mediaType: row.media_type,
+    externalSource: row.external_source ?? undefined,
+    externalId: row.external_id ?? undefined,
   }));
 }
 
@@ -149,6 +155,8 @@ export async function getSeriesById(seriesId: string) {
           series.total_episodes,
           series.episode_runtime_minutes,
           series.media_type,
+          series.external_source,
+          series.external_id,
           status.status,
           status.rating,
           status.comment
@@ -180,6 +188,8 @@ export async function getSeriesById(seriesId: string) {
         totalEpisodes: row.total_episodes ?? undefined,
         episodeRuntimeMinutes: row.episode_runtime_minutes ?? undefined,
         mediaType: row.media_type,
+        externalSource: row.external_source ?? undefined,
+        externalId: row.external_id ?? undefined,
       },
     };
   });

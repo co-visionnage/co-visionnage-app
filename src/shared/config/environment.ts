@@ -22,4 +22,5 @@ export const ENV = {
   RESEND_FROM_EMAIL: process.env.RESEND_FROM_EMAIL,
   KINOPOISK_API_KEY: process.env.KINOPOISK_API_KEY,
   OMDB_API_KEY: process.env.OMDB_API_KEY,
+  CRON_SECRET: process.env.CRON_SECRET,
 } as const;
