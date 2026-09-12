@@ -2,6 +2,8 @@ import type { ImportedSeries } from '@/shared/lib/importSeries/types';
 
 import {
   AuthMode,
+  FamilyAchievements,
+  FamilyActivityEntry,
   FamilyMember,
   FamilyStats,
   Recommendation,
@@ -47,7 +49,29 @@ export function createClient() {
           body: JSON.stringify(payload),
         });
 
+        return readJson<{
+          success: true;
+          requiresTwoFactor?: boolean;
+          userId?: string;
+        }>(response);
+      },
+      async verifyTwoFactor(userId: string, code: string) {
+        const response = await fetch('/api/auth/verify-2fa', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ userId, code }),
+        });
+
         return readJson<{ success: true }>(response);
+      },
+      async getTwoFactorStatus() {
+        const response = await fetch('/api/auth/2fa-status', {
+          cache: 'no-store',
+        });
+
+        return readJson<{ enabled: boolean }>(response);
       },
       startGitHubLogin(legalAccepted: boolean) {
         const searchParameters = new URLSearchParams({
@@ -127,6 +151,14 @@ export function createClient() {
 
       return readJson<{ stats: FamilyStats }>(response);
     },
+    async getFamilyAchievements(familyId: string) {
+      const response = await fetch(
+        `/api/family/achievements?familyId=${familyId}`,
+        { cache: 'no-store' },
+      );
+
+      return readJson<{ achievements: FamilyAchievements }>(response);
+    },
     async getYearWrapped(familyId: string, year: number) {
       const response = await fetch(
         `/api/family/wrapped?familyId=${familyId}&year=${year}`,
@@ -149,6 +181,14 @@ export function createClient() {
       });
 
       return readJson<{ history: WatchHistoryEntry[] }>(response);
+    },
+    async getFamilyActivityLog(familyId: string) {
+      const response = await fetch(
+        `/api/family/activity?familyId=${familyId}`,
+        { cache: 'no-store' },
+      );
+
+      return readJson<{ activity: FamilyActivityEntry[] }>(response);
     },
     async searchImport(query: string) {
       const response = await fetch(

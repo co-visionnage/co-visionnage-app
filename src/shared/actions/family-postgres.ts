@@ -6,6 +6,8 @@ import {
   requireCurrentUser,
   withUserContext,
 } from '@/shared/api/postgres/server';
+import { setActiveFamilyIdCookie } from '@/shared/lib/activeFamily';
+import { logFamilyActivity } from '@/shared/lib/activityLog';
 
 export type FamilyActionState = {
   error?: string;
@@ -32,6 +34,8 @@ export async function createFamily(
   if (!name) return { error: 'Введите название семьи' };
 
   try {
+    let familyId: string | undefined;
+
     await withUserContext(user.id, async (client) => {
       const familyResult = await client.query<{ id: string }>(
         `
@@ -42,16 +46,20 @@ export async function createFamily(
         [name, generateInviteCode(), user.id],
       );
 
-      const family = familyResult.rows[0];
+      familyId = familyResult.rows[0].id;
 
       await client.query(
         `
           INSERT INTO public.family_members (family_id, user_id, role)
           VALUES ($1, $2, 'owner')
         `,
-        [family.id, user.id],
+        [familyId, user.id],
       );
     });
+
+    if (familyId) {
+      await setActiveFamilyIdCookie(familyId);
+    }
   } catch (error) {
     return {
       error:
@@ -96,11 +104,25 @@ export async function joinFamily(
         [family.family_id, user.id],
       );
 
-      return { success: true } as FamilyActionState;
+      await logFamilyActivity(client, {
+        familyId: family.family_id,
+        actorId: user.id,
+        actorLabel: user.displayName ?? user.email,
+        action: 'member_joined',
+      });
+
+      return {
+        success: true,
+        familyId: family.family_id,
+      } as FamilyActionState & { familyId: string };
     });
 
     if (result.error) {
       return result;
+    }
+
+    if ('familyId' in result) {
+      await setActiveFamilyIdCookie(result.familyId);
     }
   } catch (error) {
     if (
@@ -158,6 +180,23 @@ export async function setMemberRoleAction(
         `,
         [familyId, memberUserId, role],
       );
+
+      const targetResult = await client.query<{
+        display_name: string | null;
+        email: string;
+      }>('SELECT display_name, email FROM public.profiles WHERE id = $1', [
+        memberUserId,
+      ]);
+      const target = targetResult.rows[0];
+
+      await logFamilyActivity(client, {
+        familyId,
+        actorId: user.id,
+        actorLabel: user.displayName ?? user.email,
+        action: 'role_changed',
+        targetLabel: target ? (target.display_name ?? target.email) : undefined,
+        detail: role,
+      });
     });
   } catch (error) {
     return {
@@ -184,6 +223,22 @@ export async function transferFamilyOwnershipAction(
         familyId,
         newOwnerUserId,
       ]);
+
+      const targetResult = await client.query<{
+        display_name: string | null;
+        email: string;
+      }>('SELECT display_name, email FROM public.profiles WHERE id = $1', [
+        newOwnerUserId,
+      ]);
+      const target = targetResult.rows[0];
+
+      await logFamilyActivity(client, {
+        familyId,
+        actorId: user.id,
+        actorLabel: user.displayName ?? user.email,
+        action: 'ownership_transferred',
+        targetLabel: target ? (target.display_name ?? target.email) : undefined,
+      });
     });
   } catch (error) {
     return {
