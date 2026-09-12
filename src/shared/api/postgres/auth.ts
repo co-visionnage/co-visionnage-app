@@ -7,6 +7,7 @@ import {
 
 import { cookies } from 'next/headers';
 
+import { verifyTotpCode } from '@/shared/lib/totp';
 import { query } from './database';
 
 const SESSION_COOKIE_NAME = 'notre_cinema_session';
@@ -26,6 +27,7 @@ type AuthProfileRow = {
   email: string;
   display_name: string | null;
   password_hash: string | null;
+  totp_enabled: boolean;
 };
 
 type SessionCreationRow = {
@@ -171,7 +173,14 @@ export async function registerUserSession(
   } satisfies SessionUser;
 }
 
-export async function loginUserSession(email: string, password: string) {
+export type LoginResult =
+  | { requiresTwoFactor: false; user: SessionUser }
+  | { requiresTwoFactor: true; userId: string };
+
+export async function loginUserSession(
+  email: string,
+  password: string,
+): Promise<LoginResult> {
   const result = await query<AuthProfileRow>(
     'SELECT * FROM public.get_profile_auth_by_email($1)',
     [email],
@@ -187,7 +196,30 @@ export async function loginUserSession(email: string, password: string) {
     throw new Error('Неверный email или пароль');
   }
 
-  return createSessionForProfile(user.user_id);
+  if (user.totp_enabled) {
+    return { requiresTwoFactor: true, userId: user.user_id };
+  }
+
+  const sessionUser = await createSessionForProfile(user.user_id);
+  return { requiresTwoFactor: false, user: sessionUser };
+}
+
+export async function verifyTwoFactorAndCreateSession(
+  userId: string,
+  code: string,
+): Promise<SessionUser> {
+  const result = await query<{ get_totp_secret_for_login: string | null }>(
+    'SELECT public.get_totp_secret_for_login($1)',
+    [userId],
+  );
+
+  const secret = result.rows[0]?.get_totp_secret_for_login;
+
+  if (!secret || !(await verifyTotpCode(code, secret))) {
+    throw new Error('Неверный код двухфакторной аутентификации');
+  }
+
+  return createSessionForProfile(userId);
 }
 
 export async function getSessionUser(): Promise<SessionUser | undefined> {

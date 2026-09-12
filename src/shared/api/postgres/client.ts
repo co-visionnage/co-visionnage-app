@@ -47,7 +47,29 @@ export function createClient() {
           body: JSON.stringify(payload),
         });
 
+        return readJson<{
+          success: true;
+          requiresTwoFactor?: boolean;
+          userId?: string;
+        }>(response);
+      },
+      async verifyTwoFactor(userId: string, code: string) {
+        const response = await fetch('/api/auth/verify-2fa', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ userId, code }),
+        });
+
         return readJson<{ success: true }>(response);
+      },
+      async getTwoFactorStatus() {
+        const response = await fetch('/api/auth/2fa-status', {
+          cache: 'no-store',
+        });
+
+        return readJson<{ enabled: boolean }>(response);
       },
       startGitHubLogin(legalAccepted: boolean) {
         const searchParameters = new URLSearchParams({
