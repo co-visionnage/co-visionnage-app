@@ -90,6 +90,33 @@ export type FamilyStats = {
   topGenres: FamilyStatsGenre[];
 };
 
+export type AchievementId =
+  | 'first-watch'
+  | 'watched-10'
+  | 'watched-25'
+  | 'watched-50'
+  | 'hours-10'
+  | 'hours-50'
+  | 'hours-100'
+  | 'streak-4-weeks'
+  | 'streak-12-weeks';
+
+export type Achievement = {
+  id: AchievementId;
+  title: string;
+  description: string;
+  unlocked: boolean;
+  progress: number;
+  target: number;
+};
+
+export type FamilyAchievements = {
+  totalWatchedCount: number;
+  totalHoursWatched: number;
+  currentStreakWeeks: number;
+  achievements: Achievement[];
+};
+
 export type Recommendation = {
   id: string;
   title: string;

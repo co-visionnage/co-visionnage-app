@@ -1,4 +1,5 @@
 export { AddSeriesDialog } from './add-series';
+export { AchievementsDialog } from './achievements';
 export { SeriesDiscussionDialog } from './discuss-series';
 export { EditSeriesDialog } from './edit-series';
 export { FamilyStatsDialog } from './family-stats';

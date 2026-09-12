@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import confetti from 'canvas-confetti';
 
 import { FamilyMembersDialog } from '@/app/_components/FamilyMembersDialog';
+import { AchievementsDialog } from '@/features/achievements';
 import { AddSeriesDialog } from '@/features/add-series';
 import { FamilyStatsDialog } from '@/features/family-stats';
 import { RecommendationsSection } from '@/features/recommendations';
@@ -267,6 +268,7 @@ const SeriesTracker = ({
             familyId={family.id}
           />
           <FamilyStatsDialog familyId={family.id} />
+          <AchievementsDialog familyId={family.id} />
           <WatchHistoryDialog familyId={family.id} />
           <WatchPollDialog
             familyId={family.id}

@@ -2,6 +2,7 @@ import type { ImportedSeries } from '@/shared/lib/importSeries/types';
 
 import {
   AuthMode,
+  FamilyAchievements,
   FamilyMember,
   FamilyStats,
   Recommendation,
@@ -125,6 +126,14 @@ export function createClient() {
       });
 
       return readJson<{ stats: FamilyStats }>(response);
+    },
+    async getFamilyAchievements(familyId: string) {
+      const response = await fetch(
+        `/api/family/achievements?familyId=${familyId}`,
+        { cache: 'no-store' },
+      );
+
+      return readJson<{ achievements: FamilyAchievements }>(response);
     },
     async getRecommendations(familyId: string) {
       const response = await fetch(

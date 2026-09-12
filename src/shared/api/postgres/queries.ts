@@ -1,6 +1,9 @@
 import type { PoolClient } from 'pg';
 
 import {
+  Achievement,
+  AchievementId,
+  FamilyAchievements,
   FamilyMember,
   FamilyRole,
   FamilyStats,
@@ -538,6 +541,170 @@ export async function getFamilyStats(familyId: string) {
         }),
       ),
     } satisfies FamilyStats;
+  });
+}
+
+function computeCurrentStreakWeeks(weekStarts: Date[]): number {
+  if (weekStarts.length === 0) return 0;
+
+  const sorted = weekStarts.toSorted((a, b) => b.getTime() - a.getTime());
+  const currentWeekStart = new Date();
+  currentWeekStart.setUTCHours(0, 0, 0, 0);
+  const day = currentWeekStart.getUTCDay();
+  const diffToMonday = day === 0 ? 6 : day - 1;
+  currentWeekStart.setUTCDate(currentWeekStart.getUTCDate() - diffToMonday);
+
+  const mostRecentGapDays = Math.round(
+    (currentWeekStart.getTime() - sorted[0].getTime()) / (1000 * 60 * 60 * 24),
+  );
+  // the streak is only "current" if the family watched something this week
+  // or last week — otherwise it's broken, even if it was long once
+  if (mostRecentGapDays > 7) return 0;
+
+  let streak = 1;
+  for (let index = 1; index < sorted.length; index++) {
+    const gapDays = Math.round(
+      (sorted[index - 1].getTime() - sorted[index].getTime()) /
+        (1000 * 60 * 60 * 24),
+    );
+    if (gapDays === 7) {
+      streak += 1;
+    } else {
+      break;
+    }
+  }
+
+  return streak;
+}
+
+export async function getFamilyAchievements(familyId: string) {
+  const user = await requireCurrentUser();
+
+  return withUserContext(user.id, async (client) => {
+    const totalsResult = await client.query<{
+      total_hours: string;
+      total_watched: string;
+    }>(
+      `
+        SELECT
+          COALESCE(
+            SUM(
+              COALESCE(series.total_episodes, 1) *
+              COALESCE(series.episode_runtime_minutes, 45)
+            ) / 60.0,
+            0
+          ) AS total_hours,
+          COUNT(*) AS total_watched
+        FROM public.family_series_status status
+        JOIN public.family_series series ON series.id = status.series_id
+        WHERE series.family_id = $1
+          AND status.status = 'watched'
+      `,
+      [familyId],
+    );
+
+    const weeksResult = await client.query<{ week_start: string }>(
+      `
+        SELECT DISTINCT
+          DATE_TRUNC('week', COALESCE(status.watched_at, status.updated_at))::date AS week_start
+        FROM public.family_series_status status
+        JOIN public.family_series series ON series.id = status.series_id
+        WHERE series.family_id = $1
+          AND status.status = 'watched'
+      `,
+      [familyId],
+    );
+
+    const totals = totalsResult.rows[0];
+    const totalWatchedCount = Number(totals?.total_watched ?? 0);
+    const totalHoursWatched = Math.round(Number(totals?.total_hours ?? 0));
+    const currentStreakWeeks = computeCurrentStreakWeeks(
+      weeksResult.rows.map((row) => new Date(row.week_start)),
+    );
+
+    const definitions: {
+      id: AchievementId;
+      title: string;
+      description: string;
+      progress: number;
+      target: number;
+    }[] = [
+      {
+        id: 'first-watch',
+        title: 'Первый просмотр',
+        description: 'Отметьте первый сериал или фильм как просмотренный',
+        progress: totalWatchedCount,
+        target: 1,
+      },
+      {
+        id: 'watched-10',
+        title: '10 просмотрено',
+        description: 'Досмотрите 10 сериалов или фильмов',
+        progress: totalWatchedCount,
+        target: 10,
+      },
+      {
+        id: 'watched-25',
+        title: '25 просмотрено',
+        description: 'Досмотрите 25 сериалов или фильмов',
+        progress: totalWatchedCount,
+        target: 25,
+      },
+      {
+        id: 'watched-50',
+        title: '50 просмотрено',
+        description: 'Досмотрите 50 сериалов или фильмов',
+        progress: totalWatchedCount,
+        target: 50,
+      },
+      {
+        id: 'hours-10',
+        title: '10 часов',
+        description: 'Наберите 10 часов совместного просмотра',
+        progress: totalHoursWatched,
+        target: 10,
+      },
+      {
+        id: 'hours-50',
+        title: '50 часов',
+        description: 'Наберите 50 часов совместного просмотра',
+        progress: totalHoursWatched,
+        target: 50,
+      },
+      {
+        id: 'hours-100',
+        title: '100 часов',
+        description: 'Наберите 100 часов совместного просмотра',
+        progress: totalHoursWatched,
+        target: 100,
+      },
+      {
+        id: 'streak-4-weeks',
+        title: 'Месяц подряд',
+        description: 'Смотрите что-нибудь каждую неделю 4 недели подряд',
+        progress: currentStreakWeeks,
+        target: 4,
+      },
+      {
+        id: 'streak-12-weeks',
+        title: 'Три месяца подряд',
+        description: 'Смотрите что-нибудь каждую неделю 12 недель подряд',
+        progress: currentStreakWeeks,
+        target: 12,
+      },
+    ];
+
+    const achievements: Achievement[] = definitions.map((definition) => ({
+      ...definition,
+      unlocked: definition.progress >= definition.target,
+    }));
+
+    return {
+      totalWatchedCount,
+      totalHoursWatched,
+      currentStreakWeeks,
+      achievements,
+    } satisfies FamilyAchievements;
   });
 }
 
