@@ -11,6 +11,7 @@ import { FamilyToolsMenu } from '@/features/family-tools-menu';
 import { RecommendationsSection } from '@/features/recommendations';
 import {
   addSeriesAction as addSeries,
+  addSeriesBulkAction as addSeriesBulk,
   deleteAction as deleteSeries,
   editAction as editSeries,
   markWatchedAction as markWatched,
@@ -173,6 +174,17 @@ const SeriesTracker = ({
     [family.id, playSuccess, runAndRefresh],
   );
 
+  const handleAddSeriesBulk = useCallback(
+    async (items: SeriesData[]) => {
+      const result = await runAndRefresh(() => addSeriesBulk(family.id, items));
+      if (!result?.error) {
+        playSuccess();
+      }
+      return result;
+    },
+    [family.id, playSuccess, runAndRefresh],
+  );
+
   const handleDelete = useCallback(
     async (id: string) => {
       await runAndRefresh(() => deleteSeries(id));
@@ -299,7 +311,7 @@ const SeriesTracker = ({
 
         <div className='mb-8 flex flex-wrap justify-center gap-3'>
           <AddSeriesDialog onAdd={handleAddSeries} />
-          <BulkImportDialog onAdd={handleAddSeries} />
+          <BulkImportDialog onAddMany={handleAddSeriesBulk} />
         </div>
 
         <Tabs

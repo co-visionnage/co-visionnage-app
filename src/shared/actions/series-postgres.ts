@@ -142,6 +142,175 @@ export async function addSeriesAction(
   }
 }
 
+export interface SeriesBulkActionState {
+  error?: string;
+  addedCount?: number;
+}
+
+// Used by bulk import (Trakt watchlist / IMDb CSV export): one multi-row
+// insert + one activity-log entry + one notification instead of looping
+// addSeriesAction per title, which for a 100-item watchlist meant 100
+// sequential round trips, 100 full-list refetches, and up to 300 emails
+// (one per family member per title) for a single button click.
+export async function addSeriesBulkAction(
+  familyId: string,
+  items: SeriesData[],
+): Promise<SeriesBulkActionState> {
+  const user = await requireCurrentUser().catch(() => {});
+
+  if (!user) {
+    return { error: 'Не авторизован' };
+  }
+
+  if (items.length === 0) {
+    return { addedCount: 0 };
+  }
+
+  const payload = JSON.stringify(
+    items.map((item) => ({
+      title: item.title,
+      genres: item.genres,
+      year: item.year,
+      image_url: item.image_url ?? undefined,
+      status: item.status,
+      rating:
+        item.status === 'watched' ? (item.rating ?? undefined) : undefined,
+      comment:
+        item.status === 'watched' ? (item.comment ?? undefined) : undefined,
+      total_seasons: item.totalSeasons ?? undefined,
+      total_episodes: item.totalEpisodes ?? undefined,
+      episode_runtime_minutes: item.episodeRuntimeMinutes ?? undefined,
+      trailer_url: item.trailerUrl ?? undefined,
+      media_type: item.mediaType,
+      external_source: item.externalSource ?? undefined,
+      external_id: item.externalId ?? undefined,
+    })),
+  );
+
+  const recordShape = `(
+      title text, genres jsonb, year int, image_url text,
+      status text, rating int, comment text,
+      total_seasons int, total_episodes int, episode_runtime_minutes int,
+      trailer_url text, media_type text, external_source text, external_id text
+    )`;
+
+  let addedCount = 0;
+
+  try {
+    await withUserContext(user.id, async (client) => {
+      // Two separate statements, not one combined WITH ... INSERT ...
+      // INSERT: Postgres does not guarantee that an RLS policy's own
+      // subquery (family_series_status_insert_owner re-scans
+      // family_series to check membership) sees rows a *sibling*
+      // writable CTE inserted earlier in the very same command — each
+      // sub-statement in a WITH shares one snapshot/command id, so the
+      // policy check can spuriously fail with "new row violates
+      // row-level security policy" even though the row objectively
+      // exists (reproduced against a real Postgres instance while
+      // building this). A second, separate client.query() call is a new
+      // command in the same transaction and sees the first insert fine.
+      const seriesResult = await client.query<{
+        id: string;
+        external_source: string | null;
+        external_id: string | null;
+      }>(
+        `
+          INSERT INTO public.family_series (
+            family_id, title, genres, year, image_url, created_by,
+            total_seasons, total_episodes, episode_runtime_minutes, trailer_url,
+            media_type, external_source, external_id
+          )
+          SELECT
+            $2,
+            t.title,
+            ARRAY(SELECT jsonb_array_elements_text(t.genres)),
+            t.year,
+            t.image_url,
+            $3,
+            t.total_seasons,
+            t.total_episodes,
+            t.episode_runtime_minutes,
+            t.trailer_url,
+            t.media_type,
+            t.external_source,
+            t.external_id
+          FROM jsonb_to_recordset($1::jsonb) AS t${recordShape}
+          RETURNING id, external_source, external_id
+        `,
+        [payload, familyId, user.id],
+      );
+
+      const itemByExternalId = new Map(
+        items.map((item) => [
+          `${item.externalSource ?? ''}:${item.externalId ?? ''}`,
+          item,
+        ]),
+      );
+
+      const statusRows = seriesResult.rows.map((row) => {
+        const source = itemByExternalId.get(
+          `${row.external_source ?? ''}:${row.external_id ?? ''}`,
+        );
+        const isWatched = source?.status === 'watched';
+
+        return {
+          series_id: row.id,
+          status: source?.status ?? 'to-watch',
+          rating: isWatched ? (source?.rating ?? undefined) : undefined,
+          comment: isWatched ? (source?.comment ?? undefined) : undefined,
+        };
+      });
+
+      const result = await client.query<{ series_id: string }>(
+        `
+          INSERT INTO public.family_series_status (
+            series_id, user_id, status, rating, comment, watched_at
+          )
+          SELECT
+            t.series_id,
+            $2,
+            t.status,
+            t.rating,
+            t.comment,
+            CASE WHEN t.status = 'watched' THEN NOW() END
+          FROM jsonb_to_recordset($1::jsonb) AS t(
+            series_id uuid, status text, rating int, comment text
+          )
+          RETURNING series_id
+        `,
+        [JSON.stringify(statusRows), user.id],
+      );
+
+      addedCount = result.rowCount ?? 0;
+
+      await logFamilyActivity(client, {
+        familyId,
+        actorId: user.id,
+        actorLabel: user.displayName ?? user.email,
+        action: 'series_added',
+        detail:
+          items.length === 1
+            ? items[0].title
+            : `${items.length} сериалов (импорт списком)`,
+      });
+    });
+
+    await notifyFamilyOfEvent(
+      user.id,
+      familyId,
+      'Новые сериалы в списке',
+      `${user.displayName ?? user.email} добавил(а) ${addedCount} ${addedCount === 1 ? 'сериал' : 'сериалов'}`,
+    );
+
+    return { addedCount };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error ? error.message : 'Ошибка добавления сериалов',
+    };
+  }
+}
+
 export async function deleteAction(id: string): Promise<SeriesActionState> {
   const user = await requireCurrentUser().catch(() => {});
 
