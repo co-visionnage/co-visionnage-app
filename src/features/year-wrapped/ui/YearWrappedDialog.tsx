@@ -138,7 +138,11 @@ export const YearWrappedDialog = ({
       link.href = url;
       link.download = `notre-cinema-${wrapped?.year ?? new Date().getFullYear()}.png`;
       link.click();
-      URL.revokeObjectURL(url);
+      // Revoking synchronously on the next line can race the browser
+      // actually starting to read the blob (notably on Firefox/Safari),
+      // silently turning the download into a no-op. Deferring it lets the
+      // download start first.
+      setTimeout(() => URL.revokeObjectURL(url), 0);
     }, 'image/png');
   };
 
