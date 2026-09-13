@@ -7,7 +7,10 @@ import {
 } from '@/shared/api/postgres/server';
 import { logFamilyActivity } from '@/shared/lib/activityLog';
 import { notifyFamilyByEmail } from '@/shared/lib/email/notifyFamilyByEmail';
-import { notifyFamily } from '@/shared/lib/push/notifyFamily';
+import {
+  getFamilyPushSubscriptions,
+  sendPushNotifications,
+} from '@/shared/lib/push/notifyFamily';
 import { SeriesData } from '@/shared/types';
 
 async function notifyFamilyOfEvent(
@@ -17,20 +20,26 @@ async function notifyFamilyOfEvent(
   body: string,
 ) {
   try {
-    const emails = await withUserContext(userId, async (client) => {
-      await notifyFamily(client, familyId, userId, {
-        title,
-        body,
-        url: '/',
-      });
+    const { emails, subscriptions } = await withUserContext(
+      userId,
+      async (client) => ({
+        emails: await getFamilyMemberEmailsWithClient(client, familyId, userId),
+        subscriptions: await getFamilyPushSubscriptions(
+          client,
+          familyId,
+          userId,
+        ),
+      }),
+    );
 
-      return getFamilyMemberEmailsWithClient(client, familyId, userId);
-    });
-
-    // Sent outside the transaction: notifyFamilyByEmail is an external HTTP
-    // call to Resend, and holding a pool connection (BEGIN/COMMIT) open for
-    // its duration would let a slow/down email provider exhaust the pool.
-    await notifyFamilyByEmail(emails, title, body);
+    // Sent outside the transaction: both notifyFamilyByEmail (Resend) and
+    // sendPushNotifications (web-push) are external HTTP calls, and holding
+    // a pool connection (BEGIN/COMMIT) open for their duration would let a
+    // slow/down provider exhaust the pool.
+    await Promise.all([
+      notifyFamilyByEmail(emails, title, body),
+      sendPushNotifications(subscriptions, { title, body, url: '/' }),
+    ]);
   } catch (error) {
     // best-effort — notification failures must never break the underlying
     // action, but a silent failure here is invisible without this log

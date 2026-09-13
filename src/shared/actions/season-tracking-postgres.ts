@@ -8,7 +8,10 @@ import {
 import { notifyFamilyByEmail } from '@/shared/lib/email/notifyFamilyByEmail';
 import { fetchCurrentSeasonInfo } from '@/shared/lib/importSeries/checkUpdates';
 import { findNextEpisode } from '@/shared/lib/nextEpisode/tmdb';
-import { notifyFamily } from '@/shared/lib/push/notifyFamily';
+import {
+  getFamilyPushSubscriptions,
+  sendPushNotifications,
+} from '@/shared/lib/push/notifyFamily';
 
 export type CheckUpdatesState = {
   error?: string;
@@ -94,24 +97,34 @@ export async function checkSeriesUpdatesAction(
       const notificationTitle = 'Вышел новый сезон!';
       const notificationBody = `У «${series.title}» теперь ${newTotalSeasons} сезон(ов)`;
 
-      const emails = await withUserContext(user.id, async (client) => {
-        await notifyFamily(client, series.family_id, user.id, {
+      const { emails, subscriptions } = await withUserContext(
+        user.id,
+        async (client) => ({
+          emails: await getFamilyMemberEmailsWithClient(
+            client,
+            series.family_id,
+            user.id,
+          ),
+          subscriptions: await getFamilyPushSubscriptions(
+            client,
+            series.family_id,
+            user.id,
+          ),
+        }),
+      );
+
+      // Sent outside the transaction: both notifyFamilyByEmail (Resend) and
+      // sendPushNotifications (web-push) are external HTTP calls, and holding
+      // a pool connection (BEGIN/COMMIT) open for their duration would let a
+      // slow/down provider exhaust the pool.
+      await Promise.all([
+        notifyFamilyByEmail(emails, notificationTitle, notificationBody),
+        sendPushNotifications(subscriptions, {
           title: notificationTitle,
           body: notificationBody,
           url: '/',
-        });
-
-        return getFamilyMemberEmailsWithClient(
-          client,
-          series.family_id,
-          user.id,
-        );
-      });
-
-      // Sent outside the transaction: notifyFamilyByEmail is an external HTTP
-      // call to Resend, and holding a pool connection (BEGIN/COMMIT) open for
-      // its duration would let a slow/down email provider exhaust the pool.
-      await notifyFamilyByEmail(emails, notificationTitle, notificationBody);
+        }),
+      ]);
     }
 
     return { updated, newTotalSeasons };

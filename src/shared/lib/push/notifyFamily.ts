@@ -71,20 +71,32 @@ async function sendToSubscriptions(
   );
 }
 
-export async function notifyFamily(
+// Split into a fetch and a send so callers holding a DB transaction (e.g.
+// withUserContext) can fetch subscriptions inside it -- get_family_push_subscriptions
+// is SECURITY DEFINER and checks is_family_member(), which needs the RLS
+// session variable set on that same connection -- and send the actual push
+// notifications (external HTTP calls) after the transaction has committed
+// and the connection has been released.
+export async function getFamilyPushSubscriptions(
   client: QueryClient,
   familyId: string,
   excludeUserId: string,
-  payload: PushPayload,
-): Promise<void> {
-  if (!ensureConfigured()) return;
-
+): Promise<PushSubscriptionRow[]> {
   const { rows } = await client.query<PushSubscriptionRow>(
     'SELECT * FROM public.get_family_push_subscriptions($1, $2)',
     [familyId, excludeUserId],
   );
 
-  await sendToSubscriptions(rows, payload);
+  return rows;
+}
+
+export async function sendPushNotifications(
+  subscriptions: PushSubscriptionRow[],
+  payload: PushPayload,
+): Promise<void> {
+  if (!ensureConfigured()) return;
+
+  await sendToSubscriptions(subscriptions, payload);
 }
 
 // System variant for scheduled jobs that don't run in a logged-in user's
