@@ -145,6 +145,16 @@ export function createClient() {
 
       return readJson<{ progress: SeriesProgress[] }>(response);
     },
+    async getFamilyProgress(familyId: string) {
+      const response = await fetch(
+        `/api/family/progress?familyId=${familyId}`,
+        {
+          cache: 'no-store',
+        },
+      );
+
+      return readJson<{ progress: SeriesProgress[] }>(response);
+    },
     async getFamilyStats(familyId: string) {
       const response = await fetch(`/api/family/stats?familyId=${familyId}`, {
         cache: 'no-store',
