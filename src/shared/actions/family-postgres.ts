@@ -23,6 +23,17 @@ function generateInviteCode(): string {
   return `BRTL-${result}`;
 }
 
+const MAX_INVITE_CODE_ATTEMPTS = 5;
+
+function isUniqueViolation(error: unknown) {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === '23505'
+  );
+}
+
 export async function createFamily(
   _previousState: FamilyActionState,
   formData: FormData,
@@ -36,26 +47,40 @@ export async function createFamily(
   try {
     let familyId: string | undefined;
 
-    await withUserContext(user.id, async (client) => {
-      const familyResult = await client.query<{ id: string }>(
-        `
-          INSERT INTO public.families (name, invite_code, owner_id)
-          VALUES ($1, $2, $3)
-          RETURNING id
-        `,
-        [name, generateInviteCode(), user.id],
-      );
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await withUserContext(user.id, async (client) => {
+          const familyResult = await client.query<{ id: string }>(
+            `
+              INSERT INTO public.families (name, invite_code, owner_id)
+              VALUES ($1, $2, $3)
+              RETURNING id
+            `,
+            [name, generateInviteCode(), user.id],
+          );
 
-      familyId = familyResult.rows[0].id;
+          familyId = familyResult.rows[0].id;
 
-      await client.query(
-        `
-          INSERT INTO public.family_members (family_id, user_id, role)
-          VALUES ($1, $2, 'owner')
-        `,
-        [familyId, user.id],
-      );
-    });
+          await client.query(
+            `
+              INSERT INTO public.family_members (family_id, user_id, role)
+              VALUES ($1, $2, 'owner')
+            `,
+            [familyId, user.id],
+          );
+        });
+        break;
+      } catch (error) {
+        // invite_code is the only unique column this insert can collide on;
+        // a random 6-character code hits it rarely, but with enough
+        // families it will happen eventually -- retry with a fresh code
+        // rather than surfacing it to the user as "failed to create family".
+        if (isUniqueViolation(error) && attempt < MAX_INVITE_CODE_ATTEMPTS) {
+          continue;
+        }
+        throw error;
+      }
+    }
 
     if (familyId) {
       await setActiveFamilyIdCookie(familyId);
