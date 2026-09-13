@@ -5,6 +5,7 @@ import {
   timingSafeEqual,
 } from 'node:crypto';
 
+import { cache } from 'react';
 import { cookies } from 'next/headers';
 
 import { verifyTotpCode } from '@/shared/lib/totp';
@@ -222,41 +223,47 @@ export async function verifyTwoFactorAndCreateSession(
   return createSessionForProfile(userId);
 }
 
-export async function getSessionUser(): Promise<SessionUser | undefined> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+// Wrapped in React's per-request cache: a single render (e.g. a page
+// component calling getCurrentUser() directly, whose data-fetching helper
+// also calls requireCurrentUser() internally) would otherwise hit
+// get_session_user($1) once per call instead of once per request.
+export const getSessionUser = cache(
+  async (): Promise<SessionUser | undefined> => {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
-  if (!token) {
-    return;
-  }
-
-  const result = await query<SessionUserRow>(
-    'SELECT * FROM public.get_session_user($1::text)',
-    [hashToken(token)],
-  );
-
-  const session = result.rows[0];
-
-  if (!session) {
-    // getSessionUser is also called from plain page renders (Server
-    // Components), where Next.js forbids mutating cookies at all -- only
-    // Server Actions and Route Handlers may. There the delete is a no-op
-    // best-effort cleanup of the now-invalid cookie; the caller still
-    // correctly sees "logged out" either way since no session was found.
-    try {
-      cookieStore.delete(SESSION_COOKIE_NAME);
-    } catch {
-      // ignore -- see comment above
+    if (!token) {
+      return;
     }
-    return;
-  }
 
-  return {
-    id: session.user_id,
-    email: session.email,
-    displayName: session.display_name ?? undefined,
-  };
-}
+    const result = await query<SessionUserRow>(
+      'SELECT * FROM public.get_session_user($1::text)',
+      [hashToken(token)],
+    );
+
+    const session = result.rows[0];
+
+    if (!session) {
+      // getSessionUser is also called from plain page renders (Server
+      // Components), where Next.js forbids mutating cookies at all -- only
+      // Server Actions and Route Handlers may. There the delete is a no-op
+      // best-effort cleanup of the now-invalid cookie; the caller still
+      // correctly sees "logged out" either way since no session was found.
+      try {
+        cookieStore.delete(SESSION_COOKIE_NAME);
+      } catch {
+        // ignore -- see comment above
+      }
+      return;
+    }
+
+    return {
+      id: session.user_id,
+      email: session.email,
+      displayName: session.display_name ?? undefined,
+    };
+  },
+);
 
 export async function requireSessionUser(): Promise<SessionUser> {
   const user = await getSessionUser();
