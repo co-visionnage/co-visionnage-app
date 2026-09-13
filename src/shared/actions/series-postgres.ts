@@ -7,6 +7,7 @@ import {
 } from '@/shared/api/postgres/server';
 import { logFamilyActivity } from '@/shared/lib/activityLog';
 import { notifyFamilyByEmail } from '@/shared/lib/email/notifyFamilyByEmail';
+import { matchBulkImportedRowsToItems } from '@/shared/lib/importSeries/matchBulkRows';
 import {
   getFamilyPushSubscriptions,
   sendPushNotifications,
@@ -156,6 +157,12 @@ export interface SeriesBulkActionState {
   addedCount?: number;
 }
 
+// No caller trims a watchlist/CSV import before calling this -- an
+// unbounded items.length here means an unbounded jsonb payload sent to
+// Postgres and an unbounded number of rows inserted (plus one notification
+// email per family member) from a single request.
+const MAX_BULK_IMPORT_ITEMS = 500;
+
 // Used by bulk import (Trakt watchlist / IMDb CSV export): one multi-row
 // insert + one activity-log entry + one notification instead of looping
 // addSeriesAction per title, which for a 100-item watchlist meant 100
@@ -173,6 +180,12 @@ export async function addSeriesBulkAction(
 
   if (items.length === 0) {
     return { addedCount: 0 };
+  }
+
+  if (items.length > MAX_BULK_IMPORT_ITEMS) {
+    return {
+      error: `Слишком много сериалов за один раз (максимум ${MAX_BULK_IMPORT_ITEMS})`,
+    };
   }
 
   const payload = JSON.stringify(
@@ -249,26 +262,7 @@ export async function addSeriesBulkAction(
         [payload, familyId, user.id],
       );
 
-      const itemByExternalId = new Map(
-        items.map((item) => [
-          `${item.externalSource ?? ''}:${item.externalId ?? ''}`,
-          item,
-        ]),
-      );
-
-      const statusRows = seriesResult.rows.map((row) => {
-        const source = itemByExternalId.get(
-          `${row.external_source ?? ''}:${row.external_id ?? ''}`,
-        );
-        const isWatched = source?.status === 'watched';
-
-        return {
-          series_id: row.id,
-          status: source?.status ?? 'to-watch',
-          rating: isWatched ? (source?.rating ?? undefined) : undefined,
-          comment: isWatched ? (source?.comment ?? undefined) : undefined,
-        };
-      });
+      const statusRows = matchBulkImportedRowsToItems(seriesResult.rows, items);
 
       const result = await client.query<{ series_id: string }>(
         `
