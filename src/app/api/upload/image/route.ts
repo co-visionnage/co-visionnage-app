@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { requireCurrentUser } from '@/shared/api/postgres/server';
-import { uploadImageToStorage } from '@/shared/api/storage/s3';
+import { sniffImageType, uploadImageToStorage } from '@/shared/api/storage/s3';
 import { checkRateLimit, getClientIp } from '@/shared/lib/rateLimit';
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -46,13 +46,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Файл не передан' }, { status: 400 });
   }
 
-  if (!file.type.startsWith('image/')) {
-    return NextResponse.json(
-      { error: 'Можно загружать только изображения' },
-      { status: 400 },
-    );
-  }
-
   if (file.size > MAX_IMAGE_SIZE) {
     return NextResponse.json(
       { error: 'Изображение должно быть не больше 5 МБ' },
@@ -60,17 +53,26 @@ export async function POST(request: Request) {
     );
   }
 
-  try {
-    const url = await uploadImageToStorage(file);
-    return NextResponse.json({ url });
-  } catch (error) {
+  // The client-supplied Content-Type and filename are both fully
+  // attacker-controlled -- validate the actual bytes instead. This also
+  // rejects image/svg+xml, which can carry an embedded <script> and would
+  // otherwise be served back publicly with that content-type.
+  const payload = Buffer.from(await file.arrayBuffer());
+  const image = sniffImageType(payload);
+
+  if (!image) {
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Не удалось загрузить изображение',
-      },
+      { error: 'Можно загружать только изображения (PNG, JPEG, GIF, WebP)' },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const url = await uploadImageToStorage(payload, image);
+    return NextResponse.json({ url });
+  } catch {
+    return NextResponse.json(
+      { error: 'Не удалось загрузить изображение' },
       { status: 500 },
     );
   }
