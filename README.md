@@ -40,3 +40,33 @@ pnpm migrate
 со следующим порядковым номером; писать миграции стоит идемпотентно
 (`CREATE TABLE IF NOT EXISTS`, `DROP POLICY IF EXISTS` + `CREATE POLICY`,
 `ADD COLUMN IF NOT EXISTS` и т.д.), как и все существующие.
+
+## Тесты
+
+Юнит/компонентные тесты (Vitest + Testing Library, без БД):
+
+```bash
+pnpm test        # разовый запуск
+pnpm test:watch  # watch-режим
+```
+
+End-to-end (Playwright) требуют настоящий Postgres — сами его не поднимают.
+Проще всего временный контейнер:
+
+```bash
+docker run -d --name notre-cinema-e2e-db -p 5490:5432 \
+  -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=notre_cinema \
+  --tmpfs /var/lib/postgresql/data postgres:16-alpine
+docker exec notre-cinema-e2e-db psql -U postgres -c \
+  "CREATE ROLE app_user WITH LOGIN PASSWORD 'app_pw';"
+```
+
+Затем `.env` с `DATABASE_URL`/`MIGRATE_DATABASE_URL`, указывающими на этот
+контейнер (см. `.env.example`), и:
+
+```bash
+pnpm test:e2e
+```
+
+Playwright сам поднимает `next dev` на отдельном порту (`E2E_PORT`, по
+умолчанию 3399) и накатывает миграции перед прогоном (`e2e/global-setup.ts`).
