@@ -1,0 +1,64 @@
+# Override for the ephemeral stack the DAST job spins up in CI to run
+# OWASP ZAP's baseline scan against a real running instance. Not used for
+# local dev (that's plain docker-compose.yml) or for production deploys.
+#
+# All secrets here are throwaway values that live only for the life of the
+# CI job's Docker network -- there is nothing to protect and nothing to
+# configure. Every optional integration (email, push, OAuth, import
+# sources) is deliberately left unset: src/shared/config/environment.ts
+# reads them as plain optional strings with no eager validation, so the
+# app boots fine and only degrades those specific features, which is all a
+# baseline (crawl + passive-scan) DAST run needs.
+#
+# Usage: docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d
+services:
+  app:
+    build: !reset {}
+    image: '${CI_REGISTRY_IMAGE}/app:${IMAGE_TAG}'
+    env_file: !reset []
+    environment:
+      NODE_ENV: production
+      HOSTNAME: '0.0.0.0'
+      POSTGRES_DB: covisionnage_ci
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ci-postgres-password
+      APP_DB_PASSWORD: ci-app-password
+      DATABASE_URL: postgresql://app_user:ci-app-password@postgres:5432/covisionnage_ci
+      STORAGE_ENDPOINT: http://minio:9000
+      STORAGE_REGION: us-east-1
+      STORAGE_ACCESS_KEY: ci-minio-user
+      STORAGE_SECRET_KEY: ci-minio-password
+      STORAGE_BUCKET: covisionnage-ci
+      STORAGE_PUBLIC_URL: http://localhost:9000/covisionnage-ci
+    ports: !reset []
+
+  migrate:
+    build: !reset {}
+    image: '${CI_REGISTRY_IMAGE}/migrate:${IMAGE_TAG}'
+    env_file: !reset []
+    environment:
+      MIGRATE_DATABASE_URL: postgresql://postgres:ci-postgres-password@postgres:5432/covisionnage_ci
+      APP_DB_PASSWORD: ci-app-password
+
+  postgres:
+    env_file: !reset []
+    environment:
+      POSTGRES_DB: covisionnage_ci
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ci-postgres-password
+      APP_DB_PASSWORD: ci-app-password
+    ports: !reset []
+
+  minio:
+    env_file: !reset []
+    environment:
+      MINIO_ROOT_USER: ci-minio-user
+      MINIO_ROOT_PASSWORD: ci-minio-password
+    ports: !reset []
+
+  minio-setup:
+    env_file: !reset []
+    environment:
+      STORAGE_ACCESS_KEY: ci-minio-user
+      STORAGE_SECRET_KEY: ci-minio-password
+      STORAGE_BUCKET: covisionnage-ci

@@ -83,3 +83,10 @@ Playwright сам поднимает `next dev` на отдельном порт
 ```bash
 pnpm test:integration
 ```
+
+## CI/CD
+
+Пайплайн GitLab (`.gitlab-ci.yml`) гоняет lint/typecheck/юнит/интеграционные
+тесты и security-сканы на каждый коммит, а на `main` — ещё e2e, сборку и
+сканирование Docker-образов, DAST и ручной деплой по SSH. Настройка
+CI/CD-переменных и подготовка сервера — в [docs/CICD.md](docs/CICD.md).
