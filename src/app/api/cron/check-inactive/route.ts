@@ -21,9 +21,16 @@ export async function POST(request: NextRequest) {
   }
 
   const daysParameter = request.nextUrl.searchParams.get('days');
-  const daysThreshold = daysParameter
+  const parsedDays = daysParameter
     ? Number.parseInt(daysParameter, 10)
-    : DEFAULT_DAYS_THRESHOLD;
+    : Number.NaN;
+  // A non-numeric ?days (NaN) or ?days=0/negative would otherwise flow
+  // straight into get_stale_progress -- 0 or a negative threshold nudges
+  // every user with any tracked progress at all, not just stale ones.
+  const daysThreshold =
+    Number.isFinite(parsedDays) && parsedDays > 0
+      ? parsedDays
+      : DEFAULT_DAYS_THRESHOLD;
 
   const stale = await query<StaleProgress>(
     'SELECT * FROM public.get_stale_progress($1)',
