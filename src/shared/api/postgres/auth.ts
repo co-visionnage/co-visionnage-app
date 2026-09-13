@@ -14,6 +14,7 @@ import { query } from './database';
 const SESSION_COOKIE_NAME = 'notre_cinema_session';
 const SESSION_TTL_DAYS = 30;
 const PASSWORD_KEY_LENGTH = 64;
+const TWO_FACTOR_CHALLENGE_TTL_MINUTES = 5;
 
 type SessionUserRow = {
   session_id: string;
@@ -176,7 +177,7 @@ export async function registerUserSession(
 
 export type LoginResult =
   | { requiresTwoFactor: false; user: SessionUser }
-  | { requiresTwoFactor: true; userId: string };
+  | { requiresTwoFactor: true; challengeToken: string };
 
 export async function loginUserSession(
   email: string,
@@ -198,7 +199,21 @@ export async function loginUserSession(
   }
 
   if (user.totp_enabled) {
-    return { requiresTwoFactor: true, userId: user.user_id };
+    // The client only ever sees this opaque token, never the userId --
+    // proving password knowledge is what earns the right to attempt a TOTP
+    // code, not just knowing (or guessing) whose account it is.
+    const challengeToken = randomBytes(32).toString('hex');
+    const expiresAt = new Date(
+      Date.now() + TWO_FACTOR_CHALLENGE_TTL_MINUTES * 60 * 1000,
+    );
+
+    await query('SELECT public.create_two_factor_challenge($1, $2, $3)', [
+      user.user_id,
+      hashToken(challengeToken),
+      expiresAt.toISOString(),
+    ]);
+
+    return { requiresTwoFactor: true, challengeToken };
   }
 
   const sessionUser = await createSessionForProfile(user.user_id);
@@ -206,9 +221,21 @@ export async function loginUserSession(
 }
 
 export async function verifyTwoFactorAndCreateSession(
-  userId: string,
+  challengeToken: string,
   code: string,
 ): Promise<SessionUser> {
+  const challengeTokenHash = hashToken(challengeToken);
+
+  const challengeResult = await query<{
+    get_two_factor_challenge: string | null;
+  }>('SELECT public.get_two_factor_challenge($1)', [challengeTokenHash]);
+
+  const userId = challengeResult.rows[0]?.get_two_factor_challenge;
+
+  if (!userId) {
+    throw new Error('Сессия входа истекла. Войдите заново.');
+  }
+
   const result = await query<{ get_totp_secret_for_login: string | null }>(
     'SELECT public.get_totp_secret_for_login($1)',
     [userId],
@@ -219,6 +246,13 @@ export async function verifyTwoFactorAndCreateSession(
   if (!secret || !(await verifyTotpCode(code, secret))) {
     throw new Error('Неверный код двухфакторной аутентификации');
   }
+
+  // Consumed only now, on success -- a wrong code can be retried (bounded
+  // by rate limiting in the route handler) without forcing the user back
+  // through the password step.
+  await query('SELECT public.delete_two_factor_challenge($1)', [
+    challengeTokenHash,
+  ]);
 
   return createSessionForProfile(userId);
 }

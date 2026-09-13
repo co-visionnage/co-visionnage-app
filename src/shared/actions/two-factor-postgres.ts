@@ -23,12 +23,34 @@ export async function startTwoFactorSetupAction(): Promise<TwoFactorSetupState> 
   try {
     const secret = generateTotpSecret();
 
-    await withUserContext(user.id, async (client) => {
+    // Overwriting totp_secret while totp_enabled is already true would
+    // desync the authenticator app (still showing codes for the old
+    // secret) from the database (now expecting the new one), locking the
+    // user out at their next login. Disabling 2FA first (which requires a
+    // valid current code) is the only way to re-run setup.
+    const alreadyEnabled = await withUserContext(user.id, async (client) => {
+      const existing = await client.query<{ totp_enabled: boolean }>(
+        'SELECT totp_enabled FROM public.profiles WHERE id = $1',
+        [user.id],
+      );
+
+      if (existing.rows[0]?.totp_enabled) {
+        return true;
+      }
+
       await client.query(
         'UPDATE public.profiles SET totp_secret = $2 WHERE id = $1',
         [user.id, secret],
       );
+      return false;
     });
+
+    if (alreadyEnabled) {
+      return {
+        error:
+          'Двухфакторная аутентификация уже включена. Сначала отключите её, чтобы настроить заново.',
+      };
+    }
 
     const qrCodeDataUrl = await generateTotpQrCode(user.email, secret);
 
@@ -77,7 +99,8 @@ export async function confirmTwoFactorAction(
     });
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : 'Не удалось подтвердить код',
+      error:
+        error instanceof Error ? error.message : 'Не удалось подтвердить код',
     };
   }
 }
@@ -113,7 +136,8 @@ export async function disableTwoFactorAction(
     });
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : 'Не удалось отключить 2FA',
+      error:
+        error instanceof Error ? error.message : 'Не удалось отключить 2FA',
     };
   }
 }
