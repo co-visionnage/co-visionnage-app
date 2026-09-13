@@ -53,16 +53,16 @@ export function createClient() {
         return readJson<{
           success: true;
           requiresTwoFactor?: boolean;
-          userId?: string;
+          challengeToken?: string;
         }>(response);
       },
-      async verifyTwoFactor(userId: string, code: string) {
+      async verifyTwoFactor(challengeToken: string, code: string) {
         const response = await fetch('/api/auth/verify-2fa', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ userId, code }),
+          body: JSON.stringify({ challengeToken, code }),
         });
 
         return readJson<{ success: true }>(response);
