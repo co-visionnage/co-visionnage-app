@@ -1,7 +1,7 @@
 'use client';
 
 import { Check, CheckCheck, Clock, Copy } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import confetti from 'canvas-confetti';
 
 import { AddSeriesDialog } from '@/features/add-series';
@@ -24,6 +24,7 @@ import {
   FamilyRole,
   Series,
   SeriesData,
+  SeriesProgress,
 } from '@/shared/types';
 import {
   EmptyState,
@@ -62,11 +63,35 @@ const SeriesTracker = ({
   const { preferences } = useUiPreferences();
   const [isLoading, setIsLoading] = useState(false);
   const [series, setSeries] = useState<Series[]>(initialSeries);
+  const [progressBySeriesId, setProgressBySeriesId] = useState<
+    Map<string, SeriesProgress[]>
+  >(new Map());
   const [isInviteCopied, setIsInviteCopied] = useState(false);
+
+  // One request for every series' progress instead of each card's
+  // EpisodeProgressControl fetching its own — a family with dozens of
+  // to-watch titles would otherwise fire that many HTTP requests (and DB
+  // transactions) on a single render.
+  const loadProgress = useCallback(async () => {
+    try {
+      const response = await client.getFamilyProgress(family.id);
+      const next = new Map<string, SeriesProgress[]>();
+      for (const entry of response.progress) {
+        const bucket = next.get(entry.seriesId) ?? [];
+        bucket.push(entry);
+        next.set(entry.seriesId, bucket);
+      }
+      setProgressBySeriesId(next);
+    } catch (error) {
+      console.error('SeriesTracker: error loading family progress', error);
+    }
+  }, [client, family.id]);
 
   // initialSeries comes from the server component's own SSR fetch on every
   // navigation/reload, so it's already current at mount — loadSeries only
   // needs to run again after a mutation (see runAndRefresh below), not here.
+  // Progress isn't part of that SSR payload, so it does need an initial
+  // client-side fetch.
   const loadSeries = useCallback(async () => {
     setIsLoading(true);
 
@@ -80,6 +105,10 @@ const SeriesTracker = ({
       setIsLoading(false);
     }
   }, [client, family.id]);
+
+  useEffect(() => {
+    void loadProgress();
+  }, [loadProgress]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [genreFilter, setGenreFilter] = useState('all');
@@ -348,10 +377,12 @@ const SeriesTracker = ({
                   <ToWatchCard
                     key={show.id}
                     index={index}
+                    progress={progressBySeriesId.get(show.id) ?? []}
                     series={show}
                     onDelete={handleDelete}
                     onEdit={handleEdit}
                     onMarkWatched={handleMarkWatched}
+                    onProgressChange={loadProgress}
                   />
                 ))}
               </div>

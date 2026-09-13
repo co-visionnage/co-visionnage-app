@@ -482,6 +482,48 @@ export async function getSeriesProgress(seriesId: string) {
   });
 }
 
+// Fetches progress for every series in the family in one query, instead of
+// callers issuing one getSeriesProgress request (and its own transaction)
+// per series -- a family with dozens of to-watch titles would otherwise
+// fire that many HTTP requests and DB round-trips on a single home-page
+// render. See EpisodeProgressControl / SeriesTracker for the batched caller.
+export async function getFamilyProgress(familyId: string) {
+  const user = await requireCurrentUser();
+
+  return withUserContext(user.id, async (client) => {
+    const result = await client.query<SeriesProgressRow>(
+      `
+        SELECT
+          progress.series_id,
+          progress.user_id,
+          profile.display_name,
+          profile.email,
+          progress.current_season,
+          progress.current_episode,
+          progress.updated_at
+        FROM public.family_series_progress AS progress
+        JOIN public.family_series AS series ON series.id = progress.series_id
+        JOIN public.profiles AS profile ON profile.id = progress.user_id
+        WHERE series.family_id = $1
+        ORDER BY progress.updated_at DESC
+      `,
+      [familyId],
+    );
+
+    return result.rows.map(
+      (row): SeriesProgress => ({
+        seriesId: row.series_id,
+        userId: row.user_id,
+        displayName: row.display_name ?? row.email,
+        currentSeason: row.current_season,
+        currentEpisode: row.current_episode,
+        updatedAt: row.updated_at,
+        isMine: row.user_id === user.id,
+      }),
+    );
+  });
+}
+
 type MonthlyHoursRow = {
   month: string;
   hours: string;
