@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { query } from '@/shared/api/postgres/database';
-import { ENV } from '@/shared/config/environment';
+import { isAuthorizedCronRequest } from '@/shared/lib/cron/isAuthorizedCronRequest';
 import { notifyFamilyByEmail } from '@/shared/lib/email/notifyFamilyByEmail';
 import { notifyUserSystem } from '@/shared/lib/push/notifyFamily';
 
@@ -15,15 +15,8 @@ type StaleProgress = {
 
 const DEFAULT_DAYS_THRESHOLD = 14;
 
-function isAuthorized(request: NextRequest) {
-  if (!ENV.CRON_SECRET) return false;
-
-  const header = request.headers.get('authorization');
-  return header === `Bearer ${ENV.CRON_SECRET}`;
-}
-
 export async function POST(request: NextRequest) {
-  if (!isAuthorized(request)) {
+  if (!isAuthorizedCronRequest(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
