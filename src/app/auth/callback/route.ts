@@ -15,7 +15,6 @@ type GitHubAccessTokenResponse = {
 type GitHubUserResponse = {
   login: string;
   name: string | null;
-  email: string | null;
 };
 
 type GitHubEmailResponse = {
@@ -91,28 +90,31 @@ export async function GET(request: Request) {
       throw new Error('Failed to load GitHub profile');
     }
 
-    let resolvedEmail = githubUser.email;
+    // Never trust the "email" field on /user for login purposes -- it's the
+    // user's public profile email and GitHub does not guarantee it's
+    // verified. Only /user/emails carries a `verified` flag per address, so
+    // that's the only source we resolve a login identity from; an
+    // unverified address would let someone sign in as another user by
+    // setting their GitHub profile email to that user's address.
+    let resolvedEmail: string | undefined;
 
-    if (!resolvedEmail) {
-      const emailResponse = await fetch('https://api.github.com/user/emails', {
-        headers: {
-          Accept: 'application/vnd.github+json',
-          Authorization: `Bearer ${tokenPayload.access_token}`,
-          'User-Agent': 'notre-cinema',
-        },
-        cache: 'no-store',
-      });
+    const emailResponse = await fetch('https://api.github.com/user/emails', {
+      headers: {
+        Accept: 'application/vnd.github+json',
+        Authorization: `Bearer ${tokenPayload.access_token}`,
+        'User-Agent': 'notre-cinema',
+      },
+      cache: 'no-store',
+    });
 
-      if (emailResponse.ok) {
-        const emailPayload =
-          (await emailResponse.json()) as GitHubEmailResponse[];
-        const primaryEmail =
-          emailPayload.find((item) => item.primary && item.verified) ??
-          emailPayload.find((item) => item.verified) ??
-          emailPayload[0];
+    if (emailResponse.ok) {
+      const emailPayload =
+        (await emailResponse.json()) as GitHubEmailResponse[];
+      const verifiedEmail =
+        emailPayload.find((item) => item.primary && item.verified) ??
+        emailPayload.find((item) => item.verified);
 
-        resolvedEmail = primaryEmail?.email ?? undefined;
-      }
+      resolvedEmail = verifiedEmail?.email;
     }
 
     if (!resolvedEmail) {
