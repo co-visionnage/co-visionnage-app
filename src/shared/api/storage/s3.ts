@@ -36,29 +36,68 @@ function hmac(key: string | Buffer, value: string) {
   return createHmac('sha256', key).update(value).digest();
 }
 
-function guessExtension(fileName: string, mimeType: string) {
-  const rawExtension = fileName.split('.').pop()?.toLowerCase();
-  if (rawExtension && /^[a-z0-9]+$/.test(rawExtension)) {
-    return rawExtension;
-  }
+type SniffedImage = { extension: string; mimeType: string };
 
-  switch (mimeType) {
-    case 'image/jpeg': {
-      return 'jpg';
+// Magic-byte signatures for the image types this app actually renders as
+// <img>/next/image sources -- deliberately does NOT include image/svg+xml,
+// which can carry an embedded <script> and would be served back with
+// X-Amz-Acl: public-read. Checked against the file's real bytes, never the
+// client-supplied Content-Type or filename extension (both fully
+// attacker-controlled): trusting either would let a malicious upload choose
+// its own served content-type and object-key extension.
+const IMAGE_SIGNATURES: {
+  extension: string;
+  matches: (buffer: Buffer) => boolean;
+  mimeType: string;
+}[] = [
+  {
+    extension: 'png',
+    mimeType: 'image/png',
+    matches: (buffer) =>
+      buffer.length >= 8 &&
+      buffer[0] === 0x89 &&
+      buffer[1] === 0x50 &&
+      buffer[2] === 0x4e &&
+      buffer[3] === 0x47 &&
+      buffer[4] === 0x0d &&
+      buffer[5] === 0x0a &&
+      buffer[6] === 0x1a &&
+      buffer[7] === 0x0a,
+  },
+  {
+    extension: 'jpg',
+    mimeType: 'image/jpeg',
+    matches: (buffer) =>
+      buffer.length >= 3 &&
+      buffer[0] === 0xff &&
+      buffer[1] === 0xd8 &&
+      buffer[2] === 0xff,
+  },
+  {
+    extension: 'gif',
+    mimeType: 'image/gif',
+    matches: (buffer) =>
+      buffer.length >= 6 &&
+      ['GIF87a', 'GIF89a'].includes(buffer.subarray(0, 6).toString('latin1')),
+  },
+  {
+    extension: 'webp',
+    mimeType: 'image/webp',
+    matches: (buffer) =>
+      buffer.length >= 12 &&
+      buffer.subarray(0, 4).toString('latin1') === 'RIFF' &&
+      buffer.subarray(8, 12).toString('latin1') === 'WEBP',
+  },
+];
+
+export function sniffImageType(buffer: Buffer): SniffedImage | undefined {
+  const signature = IMAGE_SIGNATURES.find((entry) => entry.matches(buffer));
+  return (
+    signature && {
+      extension: signature.extension,
+      mimeType: signature.mimeType,
     }
-    case 'image/png': {
-      return 'png';
-    }
-    case 'image/webp': {
-      return 'webp';
-    }
-    case 'image/gif': {
-      return 'gif';
-    }
-    default: {
-      return 'bin';
-    }
-  }
+  );
 }
 
 function createSignedHeaders({
@@ -129,17 +168,17 @@ function createSignedHeaders({
   };
 }
 
-export async function uploadImageToStorage(file: File) {
+export async function uploadImageToStorage(
+  payload: Buffer<ArrayBuffer>,
+  image: SniffedImage,
+) {
   const { endpoint, bucket, publicUrl } = requiredStorageConfig();
-  const mimeType = file.type || 'application/octet-stream';
-  const extension = guessExtension(file.name, mimeType);
-  const objectKey = `series-images/${Date.now()}-${randomUUID()}.${extension}`;
-  const payload = Buffer.from(await file.arrayBuffer());
+  const objectKey = `series-images/${Date.now()}-${randomUUID()}.${image.extension}`;
   const { url, headers } = createSignedHeaders({
     bucket,
     endpoint,
     key: objectKey,
-    mimeType,
+    mimeType: image.mimeType,
     payload,
   });
 
@@ -151,7 +190,12 @@ export async function uploadImageToStorage(file: File) {
 
   if (!response.ok) {
     const details = await response.text().catch(() => '');
-    throw new Error(`Storage upload failed: ${details || response.statusText}`);
+    // Logged, not returned to the caller: this can include bucket names and
+    // raw S3 error XML, which shouldn't reach the client.
+    console.error(
+      `uploadImageToStorage: PUT failed (${response.status}): ${details || response.statusText}`,
+    );
+    throw new Error('Storage upload failed');
   }
 
   return `${publicUrl}/${objectKey}`;

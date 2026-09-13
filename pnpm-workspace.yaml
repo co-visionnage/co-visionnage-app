@@ -1,8 +1,10 @@
 allowBuilds:
   '@evilmartians/lefthook': true
+  esbuild: true
   sharp: true
   unrs-resolver: true
 onlyBuiltDependencies:
   - '@evilmartians/lefthook'
+  - esbuild
   - sharp
   - unrs-resolver

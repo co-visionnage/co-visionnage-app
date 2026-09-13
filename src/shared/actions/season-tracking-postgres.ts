@@ -26,12 +26,7 @@ export async function checkSeriesUpdatesAction(
   if (!user) return { error: 'Не авторизован' };
 
   try {
-    let familyId: string | undefined;
-    let title = '';
-    let updated = false;
-    let newTotalSeasons: number | undefined;
-
-    await withUserContext(user.id, async (client) => {
+    const series = await withUserContext(user.id, async (client) => {
       const seriesResult = await client.query<{
         family_id: string;
         title: string;
@@ -47,31 +42,43 @@ export async function checkSeriesUpdatesAction(
         [seriesId],
       );
 
-      const series = seriesResult.rows[0];
-      if (!series) throw new Error('Сериал не найден');
+      const row = seriesResult.rows[0];
+      if (!row) throw new Error('Сериал не найден');
 
-      familyId = series.family_id;
-      title = series.title;
-
-      if (!series.external_source || !series.external_id) {
+      if (!row.external_source || !row.external_id) {
         throw new Error(
           'Сериал не привязан к внешнему источнику — добавлен вручную, а не через импорт',
         );
       }
 
-      const fresh = await fetchCurrentSeasonInfo(
-        series.external_source,
-        series.external_id,
-      );
+      return row;
+    });
 
-      if (!fresh?.totalSeasons) {
-        throw new Error('Не удалось получить актуальные данные');
-      }
+    // Outside the transaction: fetchCurrentSeasonInfo is an external HTTP
+    // call to OMDb/Kinopoisk, and holding a pool connection (BEGIN/COMMIT)
+    // open for its duration -- reachable on demand by any logged-in user
+    // clicking "check for updates" -- could pin all 20 pool connections if
+    // the provider hangs, same bug class as the notification-in-transaction
+    // issue fixed elsewhere.
+    const fresh = await fetchCurrentSeasonInfo(
+      series.external_source!,
+      series.external_id!,
+    );
 
-      if (
-        fresh.totalSeasons &&
-        (!series.total_seasons || fresh.totalSeasons > series.total_seasons)
-      ) {
+    if (!fresh?.totalSeasons) {
+      throw new Error('Не удалось получить актуальные данные');
+    }
+
+    let updated = false;
+    let newTotalSeasons: number | undefined;
+
+    if (!series.total_seasons || fresh.totalSeasons > series.total_seasons) {
+      // Re-opens a fresh transaction rather than reusing the one above --
+      // a second concurrent check could race this write, but it's an
+      // idempotent upsert of the same externally-fetched value either way,
+      // not a correctness issue like a double side-effecting insert would
+      // be.
+      await withUserContext(user.id, async (client) => {
         await client.query(
           `
             UPDATE public.family_series
@@ -81,26 +88,26 @@ export async function checkSeriesUpdatesAction(
           `,
           [seriesId, fresh.totalSeasons, fresh.totalEpisodes ?? undefined],
         );
-        updated = true;
-        newTotalSeasons = fresh.totalSeasons;
-      }
-    });
+      });
+      updated = true;
+      newTotalSeasons = fresh.totalSeasons;
+    }
 
-    if (updated && familyId) {
+    if (updated) {
       const notificationTitle = 'Вышел новый сезон!';
-      const notificationBody = `У «${title}» теперь ${newTotalSeasons} сезон(ов)`;
+      const notificationBody = `У «${series.title}» теперь ${newTotalSeasons} сезон(ов)`;
 
       const { emails, subscriptions } = await withUserContext(
         user.id,
         async (client) => ({
           emails: await getFamilyMemberEmailsWithClient(
             client,
-            familyId!,
+            series.family_id,
             user.id,
           ),
           subscriptions: await getFamilyPushSubscriptions(
             client,
-            familyId!,
+            series.family_id,
             user.id,
           ),
         }),
@@ -142,9 +149,7 @@ export async function checkNextEpisodeAction(
   if (!user) return { error: 'Не авторизован' };
 
   try {
-    let result: CheckNextEpisodeState = {};
-
-    await withUserContext(user.id, async (client) => {
+    const series = await withUserContext(user.id, async (client) => {
       const seriesResult = await client.query<{
         external_source: string | null;
         external_id: string | null;
@@ -153,30 +158,34 @@ export async function checkNextEpisodeAction(
         [seriesId],
       );
 
-      const series = seriesResult.rows[0];
+      const row = seriesResult.rows[0];
       if (
-        !series?.external_id ||
-        !['omdb', 'imdb-csv'].includes(series.external_source ?? '')
+        !row?.external_id ||
+        !['omdb', 'imdb-csv'].includes(row.external_source ?? '')
       ) {
         throw new Error(
           'Дата выхода доступна только для сериалов, импортированных с IMDb-идентификатором (OMDb или IMDb CSV)',
         );
       }
 
-      const next = await findNextEpisode(series.external_id);
-      if (!next) {
-        throw new Error('Не удалось найти дату следующего эпизода');
-      }
+      return row;
+    });
 
+    // Outside the transaction: findNextEpisode is an external HTTP call to
+    // TMDB -- see the comment in checkSeriesUpdatesAction above.
+    const next = await findNextEpisode(series.external_id!);
+    if (!next) {
+      throw new Error('Не удалось найти дату следующего эпизода');
+    }
+
+    await withUserContext(user.id, async (client) => {
       await client.query(
         'SELECT public.update_series_next_episode($1, $2, $3)',
         [seriesId, next.airDate, next.label],
       );
-
-      result = { airDate: next.airDate, label: next.label };
     });
 
-    return result;
+    return { airDate: next.airDate, label: next.label };
   } catch (error) {
     return {
       error:

@@ -1,14 +1,15 @@
 'use client';
 
 import { RefreshCw, Share2 } from 'lucide-react';
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { SeriesPoster } from '@/entities/series';
 import { EpisodeProgressControl, SeriesDiscussionDialog } from '@/features';
 import { checkSeriesUpdatesAction } from '@/shared/actions/season-tracking-postgres';
+import { createClient } from '@/shared/api/postgres/client';
 import { useAppSounds } from '@/shared/hooks';
 import { toYoutubeEmbedUrl } from '@/shared/lib/youtube';
-import { Series } from '@/shared/types';
+import { Series, SeriesProgress } from '@/shared/types';
 import { Badge, Button } from '@/shared/ui/lib';
 
 interface SeriesDetailViewProperties {
@@ -17,10 +18,26 @@ interface SeriesDetailViewProperties {
 }
 
 export const SeriesDetailView = ({ series }: SeriesDetailViewProperties) => {
+  const client = useMemo(() => createClient(), []);
   const { playClick } = useAppSounds();
   const [isCopied, setIsCopied] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const [checkMessage, setCheckMessage] = useState<string | null>();
+  const [progress, setProgress] = useState<SeriesProgress[]>([]);
+
+  const loadProgress = useCallback(async () => {
+    try {
+      const response = await client.getSeriesProgress(series.id);
+      setProgress(response.progress);
+    } catch {
+      // best-effort widget — leave progress empty on failure
+    }
+  }, [client, series.id]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetches progress from the server on mount, not derived from render state
+    void loadProgress();
+  }, [loadProgress]);
 
   const trailerEmbedUrl = series.trailerUrl
     ? toYoutubeEmbedUrl(series.trailerUrl)
@@ -118,7 +135,11 @@ export const SeriesDetailView = ({ series }: SeriesDetailViewProperties) => {
         ) : undefined}
 
         {series.mediaType === 'movie' ? undefined : (
-          <EpisodeProgressControl series={series} />
+          <EpisodeProgressControl
+            progress={progress}
+            series={series}
+            onProgressChange={loadProgress}
+          />
         )}
 
         {series.mediaType === 'series' && series.externalId ? (

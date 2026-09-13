@@ -1,40 +1,28 @@
 'use client';
 
 import { Minus, Plus } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
 
 import { setSeriesProgressAction } from '@/shared/actions/progress-postgres';
-import { createClient } from '@/shared/api/postgres/client';
 import { useAppSounds } from '@/shared/hooks';
 import { Series, SeriesProgress } from '@/shared/types';
 
 interface EpisodeProgressControlProperties {
+  onProgressChange: () => void;
+  progress: SeriesProgress[];
   series: Series;
 }
 
 export const EpisodeProgressControl = ({
+  onProgressChange,
+  progress,
   series,
 }: EpisodeProgressControlProperties) => {
-  const client = useMemo(() => createClient(), []);
   const { playClick } = useAppSounds();
-  const [mine, setMine] = useState<SeriesProgress | undefined>();
-  const [others, setOthers] = useState<SeriesProgress[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
-  const load = useCallback(async () => {
-    try {
-      const { progress } = await client.getSeriesProgress(series.id);
-      setMine(progress.find((entry) => entry.isMine));
-      setOthers(progress.filter((entry) => !entry.isMine));
-    } catch {
-      // best-effort widget — silently keep previous state on failure
-    }
-  }, [client, series.id]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetches progress from the server on mount, not derived from render state
-    void load();
-  }, [load]);
+  const mine = progress.find((entry) => entry.isMine);
+  const others = progress.filter((entry) => !entry.isMine);
 
   const season = mine?.currentSeason ?? 1;
   const episode = mine?.currentEpisode ?? 0;
@@ -43,7 +31,7 @@ export const EpisodeProgressControl = ({
     playClick();
     setIsSaving(true);
     await setSeriesProgressAction(series.id, nextSeason, nextEpisode);
-    await load();
+    onProgressChange();
     setIsSaving(false);
   };
 

@@ -39,13 +39,19 @@ export async function createWatchPollAction(
 
       const pollId = pollResult.rows[0].id;
 
+      // Scoped to family_id, not just "any series that exists" -- the FK
+      // on family_watch_poll_options.series_id only requires the id to
+      // exist somewhere, not that it belongs to this poll's family.
       await client.query(
         `
           INSERT INTO public.family_watch_poll_options (poll_id, series_id)
-          SELECT $1, series_id FROM UNNEST($2::uuid[]) AS series_id
+          SELECT $1, series.id
+          FROM public.family_series series
+          WHERE series.id = ANY($2::uuid[])
+            AND series.family_id = $3
           ON CONFLICT DO NOTHING
         `,
-        [pollId, uniqueSeriesIds],
+        [pollId, uniqueSeriesIds, familyId],
       );
     });
   } catch (error) {

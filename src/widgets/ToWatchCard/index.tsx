@@ -9,7 +9,7 @@ import {
   SeriesDiscussionDialog,
 } from '@/features';
 import { useAppSounds } from '@/shared/hooks';
-import { Series, SeriesData } from '@/shared/types';
+import { Series, SeriesData, SeriesProgress } from '@/shared/types';
 import { Badge, Button } from '@/shared/ui/lib';
 
 interface ToWatchCardProperties {
@@ -17,6 +17,8 @@ interface ToWatchCardProperties {
   onDelete: (id: string) => void;
   onEdit: (id: string, data: Partial<SeriesData>) => void;
   onMarkWatched: (id: string, rating: number, comment: string) => void;
+  onProgressChange: () => void;
+  progress: SeriesProgress[];
   series: Series;
 }
 
@@ -25,6 +27,8 @@ export const ToWatchCard = ({
   onDelete,
   onEdit,
   onMarkWatched,
+  onProgressChange,
+  progress,
   series,
 }: ToWatchCardProperties) => {
   const { playClick } = useAppSounds();
@@ -81,7 +85,11 @@ export const ToWatchCard = ({
       </div>
 
       {series.mediaType === 'movie' ? undefined : (
-        <EpisodeProgressControl series={series} />
+        <EpisodeProgressControl
+          progress={progress}
+          series={series}
+          onProgressChange={onProgressChange}
+        />
       )}
       <SeriesDiscussionDialog seriesId={series.id} seriesTitle={series.title} />
     </SeriesCard>

@@ -53,7 +53,8 @@ export const SeriesHeader = ({
   const [legalAccepted, setLegalAccepted] = useState(false);
   const [error, setError] = useState<string | null>();
   const [isPending, setIsPending] = useState(false);
-  const [twoFactorUserId, setTwoFactorUserId] = useState<string>();
+  const [twoFactorChallengeToken, setTwoFactorChallengeToken] =
+    useState<string>();
   const [twoFactorCode, setTwoFactorCode] = useState('');
 
   const normalizedEmail = email.trim().toLowerCase();
@@ -106,8 +107,8 @@ export const SeriesHeader = ({
         legalAccepted,
       });
 
-      if (result.requiresTwoFactor && result.userId) {
-        setTwoFactorUserId(result.userId);
+      if (result.requiresTwoFactor && result.challengeToken) {
+        setTwoFactorChallengeToken(result.challengeToken);
         setIsPending(false);
         return;
       }
@@ -125,14 +126,14 @@ export const SeriesHeader = ({
   };
 
   const handleVerifyTwoFactor = async () => {
-    if (!twoFactorUserId) return;
+    if (!twoFactorChallengeToken) return;
 
     playClick();
     setError(undefined);
     setIsPending(true);
 
     try {
-      await client.auth.verifyTwoFactor(twoFactorUserId, twoFactorCode);
+      await client.auth.verifyTwoFactor(twoFactorChallengeToken, twoFactorCode);
       globalThis.location.reload();
     } catch (verifyError) {
       setError(
@@ -322,7 +323,7 @@ export const SeriesHeader = ({
               <DialogHeader>
                 <div className='mb-4 -rotate-2 border-4 border-black bg-purple-600 p-4 shadow-[5px_5px_0px_0px_rgba(0,0,0,1)]'>
                   <DialogTitle className='text-center text-3xl font-black tracking-tight text-yellow-300 uppercase'>
-                    {twoFactorUserId
+                    {twoFactorChallengeToken
                       ? 'Код подтверждения'
                       : mode === 'login'
                         ? 'Вход'
@@ -331,7 +332,7 @@ export const SeriesHeader = ({
                 </div>
               </DialogHeader>
 
-              {twoFactorUserId ? (
+              {twoFactorChallengeToken ? (
                 <div className='grid gap-3'>
                   <p className='text-center text-sm font-bold text-black'>
                     Введите код из приложения-аутентификатора
@@ -359,7 +360,7 @@ export const SeriesHeader = ({
                     type='button'
                     onClick={() => {
                       playClick();
-                      setTwoFactorUserId(undefined);
+                      setTwoFactorChallengeToken(undefined);
                       setTwoFactorCode('');
                       setError(undefined);
                     }}
@@ -369,185 +370,185 @@ export const SeriesHeader = ({
                 </div>
               ) : (
                 <>
-              <div className='mb-2 grid grid-cols-2 gap-3'>
-                <Button
-                  className='border-4 border-black bg-white font-black text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'
-                  type='button'
-                  onClick={() => {
-                    playClick();
-                    setMode('login');
-                    setError(undefined);
-                  }}
-                >
-                  <Mail className='mr-2' size={18} />
-                  Войти
-                </Button>
-                <Button
-                  className='border-4 border-black bg-cyan-300 font-black text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'
-                  type='button'
-                  onClick={() => {
-                    playClick();
-                    setMode('register');
-                    setError(undefined);
-                  }}
-                >
-                  <UserPlus className='mr-2' size={18} />
-                  Регистрация
-                </Button>
-              </div>
-
-              <div className='grid gap-3'>
-                <div className='grid gap-2'>
-                  <input
-                    required
-                    className='h-14 border-4 border-black bg-white px-4 text-lg font-bold outline-none focus:bg-yellow-50'
-                    placeholder='email@example.com'
-                    value={email}
-                    onChange={(event) => {
-                      setEmail(event.target.value);
-                      resetCommonError();
-                    }}
-                  />
-                  {inlineEmailError ? (
-                    <p className='text-sm font-black text-red-700'>
-                      {inlineEmailError}
-                    </p>
-                  ) : undefined}
-                </div>
-
-                {mode === 'register' ? (
-                  <div className='grid gap-2'>
-                    <input
-                      className='h-14 border-4 border-black bg-white px-4 text-lg font-bold outline-none focus:bg-yellow-50'
-                      placeholder='Как вас подписать'
-                      value={displayName}
-                      onChange={(event) => {
-                        setDisplayName(event.target.value);
-                        resetCommonError();
-                      }}
-                    />
-                    {inlineDisplayNameError ? (
-                      <p className='text-sm font-black text-red-700'>
-                        {inlineDisplayNameError}
-                      </p>
-                    ) : undefined}
-                  </div>
-                ) : undefined}
-
-                <div className='grid gap-2'>
-                  <input
-                    required
-                    className='h-14 border-4 border-black bg-white px-4 text-lg font-bold outline-none focus:bg-yellow-50'
-                    placeholder='Пароль'
-                    type='password'
-                    value={password}
-                    onChange={(event) => {
-                      setPassword(event.target.value);
-                      resetCommonError();
-                    }}
-                  />
-                  {inlinePasswordError ? (
-                    <p className='text-sm font-black text-red-700'>
-                      {inlinePasswordError}
-                    </p>
-                  ) : undefined}
-                </div>
-
-                {mode === 'register' ? (
-                  <div className='grid gap-2'>
-                    <input
-                      required
-                      className='h-14 border-4 border-black bg-white px-4 text-lg font-bold outline-none focus:bg-yellow-50'
-                      placeholder='Подтверждение пароля'
-                      type='password'
-                      value={confirmPassword}
-                      onChange={(event) => {
-                        setConfirmPassword(event.target.value);
-                        resetCommonError();
-                      }}
-                    />
-                    {inlineConfirmError ? (
-                      <p className='text-sm font-black text-red-700'>
-                        {inlineConfirmError}
-                      </p>
-                    ) : undefined}
-                  </div>
-                ) : undefined}
-
-                <label className='group flex cursor-pointer items-start gap-3 border-4 border-black bg-[#fff8ce] p-4 text-sm font-bold text-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-0.5'>
-                  <span className='relative mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden border-4 border-black bg-white transition-all duration-150 group-hover:scale-105 group-hover:bg-yellow-200'>
-                    <input
-                      checked={legalAccepted}
-                      className='peer sr-only'
-                      type='checkbox'
-                      onChange={(event) => {
+                  <div className='mb-2 grid grid-cols-2 gap-3'>
+                    <Button
+                      className='border-4 border-black bg-white font-black text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'
+                      type='button'
+                      onClick={() => {
                         playClick();
-                        setLegalAccepted(event.target.checked);
-                        resetCommonError();
+                        setMode('login');
+                        setError(undefined);
                       }}
-                    />
-                    <span className='absolute inset-0 bg-[linear-gradient(135deg,#bef264_0%,#facc15_100%)] opacity-0 transition-opacity peer-checked:opacity-100' />
-                    <span className='relative text-lg leading-none font-black text-black opacity-0 transition-all peer-checked:scale-100 peer-checked:opacity-100'>
-                      ✓
-                    </span>
-                  </span>
-                  <span className='leading-6'>
-                    Я принимаю{' '}
-                    <Link
-                      className='underline decoration-4 underline-offset-[6px]'
-                      href='/legal/agreement'
-                      target='_blank'
                     >
-                      пользовательское соглашение
-                    </Link>
-                    ,{' '}
-                    <Link
-                      className='underline decoration-4 underline-offset-[6px]'
-                      href='/legal/terms'
-                      target='_blank'
+                      <Mail className='mr-2' size={18} />
+                      Войти
+                    </Button>
+                    <Button
+                      className='border-4 border-black bg-cyan-300 font-black text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'
+                      type='button'
+                      onClick={() => {
+                        playClick();
+                        setMode('register');
+                        setError(undefined);
+                      }}
                     >
-                      условия использования
-                    </Link>{' '}
-                    и{' '}
-                    <Link
-                      className='underline decoration-4 underline-offset-[6px]'
-                      href='/legal/privacy'
-                      target='_blank'
+                      <UserPlus className='mr-2' size={18} />
+                      Регистрация
+                    </Button>
+                  </div>
+
+                  <div className='grid gap-3'>
+                    <div className='grid gap-2'>
+                      <input
+                        required
+                        className='h-14 border-4 border-black bg-white px-4 text-lg font-bold outline-none focus:bg-yellow-50'
+                        placeholder='email@example.com'
+                        value={email}
+                        onChange={(event) => {
+                          setEmail(event.target.value);
+                          resetCommonError();
+                        }}
+                      />
+                      {inlineEmailError ? (
+                        <p className='text-sm font-black text-red-700'>
+                          {inlineEmailError}
+                        </p>
+                      ) : undefined}
+                    </div>
+
+                    {mode === 'register' ? (
+                      <div className='grid gap-2'>
+                        <input
+                          className='h-14 border-4 border-black bg-white px-4 text-lg font-bold outline-none focus:bg-yellow-50'
+                          placeholder='Как вас подписать'
+                          value={displayName}
+                          onChange={(event) => {
+                            setDisplayName(event.target.value);
+                            resetCommonError();
+                          }}
+                        />
+                        {inlineDisplayNameError ? (
+                          <p className='text-sm font-black text-red-700'>
+                            {inlineDisplayNameError}
+                          </p>
+                        ) : undefined}
+                      </div>
+                    ) : undefined}
+
+                    <div className='grid gap-2'>
+                      <input
+                        required
+                        className='h-14 border-4 border-black bg-white px-4 text-lg font-bold outline-none focus:bg-yellow-50'
+                        placeholder='Пароль'
+                        type='password'
+                        value={password}
+                        onChange={(event) => {
+                          setPassword(event.target.value);
+                          resetCommonError();
+                        }}
+                      />
+                      {inlinePasswordError ? (
+                        <p className='text-sm font-black text-red-700'>
+                          {inlinePasswordError}
+                        </p>
+                      ) : undefined}
+                    </div>
+
+                    {mode === 'register' ? (
+                      <div className='grid gap-2'>
+                        <input
+                          required
+                          className='h-14 border-4 border-black bg-white px-4 text-lg font-bold outline-none focus:bg-yellow-50'
+                          placeholder='Подтверждение пароля'
+                          type='password'
+                          value={confirmPassword}
+                          onChange={(event) => {
+                            setConfirmPassword(event.target.value);
+                            resetCommonError();
+                          }}
+                        />
+                        {inlineConfirmError ? (
+                          <p className='text-sm font-black text-red-700'>
+                            {inlineConfirmError}
+                          </p>
+                        ) : undefined}
+                      </div>
+                    ) : undefined}
+
+                    <label className='group flex cursor-pointer items-start gap-3 border-4 border-black bg-[#fff8ce] p-4 text-sm font-bold text-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-transform hover:-translate-y-0.5'>
+                      <span className='relative mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden border-4 border-black bg-white transition-all duration-150 group-hover:scale-105 group-hover:bg-yellow-200'>
+                        <input
+                          checked={legalAccepted}
+                          className='peer sr-only'
+                          type='checkbox'
+                          onChange={(event) => {
+                            playClick();
+                            setLegalAccepted(event.target.checked);
+                            resetCommonError();
+                          }}
+                        />
+                        <span className='absolute inset-0 bg-[linear-gradient(135deg,#bef264_0%,#facc15_100%)] opacity-0 transition-opacity peer-checked:opacity-100' />
+                        <span className='relative text-lg leading-none font-black text-black opacity-0 transition-all peer-checked:scale-100 peer-checked:opacity-100'>
+                          ✓
+                        </span>
+                      </span>
+                      <span className='leading-6'>
+                        Я принимаю{' '}
+                        <Link
+                          className='underline decoration-4 underline-offset-[6px]'
+                          href='/legal/agreement'
+                          target='_blank'
+                        >
+                          пользовательское соглашение
+                        </Link>
+                        ,{' '}
+                        <Link
+                          className='underline decoration-4 underline-offset-[6px]'
+                          href='/legal/terms'
+                          target='_blank'
+                        >
+                          условия использования
+                        </Link>{' '}
+                        и{' '}
+                        <Link
+                          className='underline decoration-4 underline-offset-[6px]'
+                          href='/legal/privacy'
+                          target='_blank'
+                        >
+                          политику конфиденциальности
+                        </Link>
+                        .
+                      </span>
+                    </label>
+
+                    {error ? (
+                      <p className='border-4 border-black bg-white p-3 text-sm font-black text-red-600'>
+                        {error}
+                      </p>
+                    ) : undefined}
+
+                    <Button
+                      className='flex h-16 gap-4 border-4 border-black bg-white text-xl font-black text-black shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 disabled:shadow-none'
+                      disabled={!canSubmit}
+                      onClick={() => void handleEmailAuth()}
                     >
-                      политику конфиденциальности
-                    </Link>
-                    .
-                  </span>
-                </label>
+                      <Mail size={28} />
+                      {isPending
+                        ? 'Обрабатываем...'
+                        : mode === 'login'
+                          ? 'Войти'
+                          : 'Зарегистрироваться'}
+                    </Button>
 
-                {error ? (
-                  <p className='border-4 border-black bg-white p-3 text-sm font-black text-red-600'>
-                    {error}
-                  </p>
-                ) : undefined}
-
-                <Button
-                  className='flex h-16 gap-4 border-4 border-black bg-white text-xl font-black text-black shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 disabled:shadow-none'
-                  disabled={!canSubmit}
-                  onClick={() => void handleEmailAuth()}
-                >
-                  <Mail size={28} />
-                  {isPending
-                    ? 'Обрабатываем...'
-                    : mode === 'login'
-                      ? 'Войти'
-                      : 'Зарегистрироваться'}
-                </Button>
-
-                <Button
-                  className='flex h-16 gap-4 border-4 border-black bg-gray-900 text-xl font-black text-white shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none disabled:cursor-not-allowed disabled:opacity-60'
-                  disabled={isPending}
-                  onClick={handleGitHubLogin}
-                >
-                  <Github size={28} />
-                  {isPending ? 'Перенаправляем...' : 'Войти по GitHub'}
-                </Button>
-              </div>
+                    <Button
+                      className='flex h-16 gap-4 border-4 border-black bg-gray-900 text-xl font-black text-white shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] transition-all hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none disabled:cursor-not-allowed disabled:opacity-60'
+                      disabled={isPending}
+                      onClick={handleGitHubLogin}
+                    >
+                      <Github size={28} />
+                      {isPending ? 'Перенаправляем...' : 'Войти по GitHub'}
+                    </Button>
+                  </div>
                 </>
               )}
             </DialogContent>
