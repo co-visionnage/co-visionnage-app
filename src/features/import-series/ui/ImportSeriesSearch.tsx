@@ -23,44 +23,53 @@ export const ImportSeriesSearch = ({
   const [notConfigured, setNotConfigured] = useState(false);
   const debouncedQuery = useDebounce(query, 400);
 
-  const runSearch = async (value: string) => {
-    if (!value.trim()) {
-      setResults([]);
+  useEffect(() => {
+    if (!debouncedQuery.trim()) {
       return;
     }
 
-    setIsLoading(true);
-    setError(undefined);
+    const controller = new AbortController();
 
-    try {
-      const response = await fetch(
-        `/api/import/search?query=${encodeURIComponent(value)}`,
-      );
-      const data = (await response.json()) as {
-        results?: ImportedSeries[];
-        error?: string;
-      };
+    const runSearch = async () => {
+      setIsLoading(true);
+      setError(undefined);
 
-      if (!response.ok) {
-        if (response.status === 501) {
-          setNotConfigured(true);
-        } else {
-          setError(data.error ?? 'Не удалось выполнить поиск');
+      try {
+        const response = await fetch(
+          `/api/import/search?query=${encodeURIComponent(debouncedQuery)}`,
+          { signal: controller.signal },
+        );
+        const data = (await response.json()) as {
+          results?: ImportedSeries[];
+          error?: string;
+        };
+
+        if (!response.ok) {
+          if (response.status === 501) {
+            setNotConfigured(true);
+          } else {
+            setError(data.error ?? 'Не удалось выполнить поиск');
+          }
+          setResults([]);
+          return;
         }
-        setResults([]);
-        return;
+
+        setResults(data.results ?? []);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return;
+        }
+        setError('Не удалось выполнить поиск');
+      } finally {
+        if (!controller.signal.aborted) setIsLoading(false);
       }
+    };
 
-      setResults(data.results ?? []);
-    } catch {
-      setError('Не удалось выполнить поиск');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    void runSearch();
 
-  useEffect(() => {
-    void runSearch(debouncedQuery);
+    return () => {
+      controller.abort();
+    };
   }, [debouncedQuery]);
 
   return (
@@ -90,7 +99,7 @@ export const ImportSeriesSearch = ({
         </p>
       ) : undefined}
 
-      {results.length > 0 ? (
+      {debouncedQuery.trim() && results.length > 0 ? (
         <div className='mt-2 grid max-h-40 gap-1 overflow-y-auto'>
           {results.map((result) => (
             <Button
