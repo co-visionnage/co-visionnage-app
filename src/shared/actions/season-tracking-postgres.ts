@@ -12,6 +12,16 @@ import {
   getFamilyPushSubscriptions,
   sendPushNotifications,
 } from '@/shared/lib/push/notifyFamily';
+import { checkRateLimit } from '@/shared/lib/rateLimit';
+
+// Unlike /api/import/*, these actions call an external API (OMDb/Kinopoisk,
+// TMDB) with no request-level throttling of their own -- any logged-in user
+// could otherwise hammer "check for updates" in a loop and exhaust the
+// shared API key/quota for the whole deployment. Rate-limited per user
+// rather than per IP since these are authenticated server actions, not
+// routes with a Request to read a client IP from.
+const EXTERNAL_API_RATE_LIMIT_MAX_ATTEMPTS = 20;
+const EXTERNAL_API_RATE_LIMIT_WINDOW_SECONDS = 10 * 60;
 
 export type CheckUpdatesState = {
   error?: string;
@@ -24,6 +34,15 @@ export async function checkSeriesUpdatesAction(
 ): Promise<CheckUpdatesState> {
   const user = await requireCurrentUser().catch(() => {});
   if (!user) return { error: 'Не авторизован' };
+
+  const isWithinLimit = await checkRateLimit(
+    `season-check:user:${user.id}`,
+    EXTERNAL_API_RATE_LIMIT_MAX_ATTEMPTS,
+    EXTERNAL_API_RATE_LIMIT_WINDOW_SECONDS,
+  );
+  if (!isWithinLimit) {
+    return { error: 'Слишком много проверок обновлений. Попробуйте позже.' };
+  }
 
   try {
     const series = await withUserContext(user.id, async (client) => {
@@ -147,6 +166,15 @@ export async function checkNextEpisodeAction(
 ): Promise<CheckNextEpisodeState> {
   const user = await requireCurrentUser().catch(() => {});
   if (!user) return { error: 'Не авторизован' };
+
+  const isWithinLimit = await checkRateLimit(
+    `season-check:user:${user.id}`,
+    EXTERNAL_API_RATE_LIMIT_MAX_ATTEMPTS,
+    EXTERNAL_API_RATE_LIMIT_WINDOW_SECONDS,
+  );
+  if (!isWithinLimit) {
+    return { error: 'Слишком много проверок обновлений. Попробуйте позже.' };
+  }
 
   try {
     const series = await withUserContext(user.id, async (client) => {
