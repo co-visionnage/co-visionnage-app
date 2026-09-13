@@ -1,6 +1,7 @@
 import { afterAll, describe, expect, it } from 'vitest';
 
 import {
+  addFamilyMember,
   adminPool,
   closePools,
   seedFamily,
@@ -54,11 +55,11 @@ async function vote(userId: string, pollId: string, optionId: string) {
   );
 }
 
-describe('watch poll tenant isolation', () => {
-  afterAll(async () => {
-    await closePools();
-  });
+afterAll(async () => {
+  await closePools();
+});
 
+describe('watch poll tenant isolation', () => {
   it('rejects a vote whose option belongs to a different poll than the one supplied', async () => {
     const attacker = await seedProfile('Attacker');
     const victim = await seedProfile('Victim');
@@ -152,5 +153,114 @@ describe('watch poll tenant isolation', () => {
     );
 
     expect(options.rows).toEqual([{ series_id: ownSeries.id }]);
+  });
+});
+
+// Regression coverage for the fix-closed-poll-voting-and-close-permissions
+// fix: voting/closing had no database-level check that a poll was still
+// open, and any family member (not just the creator/owner) could close or
+// rename someone else's poll.
+
+async function closePoll(userId: string, pollId: string) {
+  return withUserContext(userId, (client) =>
+    client.query(
+      `
+        UPDATE public.family_watch_polls
+        SET is_open = false, closed_at = NOW()
+        WHERE id = $1
+      `,
+      [pollId],
+    ),
+  );
+}
+
+describe('watch poll closing and closed-poll voting', () => {
+  it('rejects a new vote on a poll that has already been closed', async () => {
+    const owner = await seedProfile('Owner');
+    const member = await seedProfile('Member');
+    const family = await seedFamily(owner.id, 'Family E');
+    await addFamilyMember(family.id, member.id);
+    const series = await seedSeries(family.id, owner.id, 'E Show');
+    const poll = await seedPoll(family.id, owner.id, 'Poll E');
+    const option = await seedPollOption(poll.id, series.id);
+
+    await closePoll(owner.id, poll.id);
+
+    await expect(vote(member.id, poll.id, option.id)).rejects.toThrow(
+      /row-level security/i,
+    );
+  });
+
+  it('rejects rewriting an existing vote after the poll closes', async () => {
+    const owner = await seedProfile('Owner');
+    const family = await seedFamily(owner.id, 'Family F');
+    const series = await seedSeries(family.id, owner.id, 'F Show');
+    const poll = await seedPoll(family.id, owner.id, 'Poll F');
+    const optionOne = await seedPollOption(poll.id, series.id);
+    const seriesTwo = await seedSeries(family.id, owner.id, 'F Show 2');
+    const optionTwo = await seedPollOption(poll.id, seriesTwo.id);
+
+    await vote(owner.id, poll.id, optionOne.id);
+    await closePoll(owner.id, poll.id);
+
+    await expect(vote(owner.id, poll.id, optionTwo.id)).rejects.toThrow(
+      /row-level security/i,
+    );
+  });
+
+  it('lets the poll creator close their own poll', async () => {
+    const owner = await seedProfile('Owner');
+    const family = await seedFamily(owner.id, 'Family G');
+    const poll = await seedPoll(family.id, owner.id, 'Poll G');
+
+    await closePoll(owner.id, poll.id);
+
+    const result = await withUserContext(owner.id, (client) =>
+      client.query<{ is_open: boolean }>(
+        'SELECT is_open FROM public.family_watch_polls WHERE id = $1',
+        [poll.id],
+      ),
+    );
+    expect(result.rows[0].is_open).toBe(false);
+  });
+
+  it('lets the family owner close a poll created by another member', async () => {
+    const owner = await seedProfile('Owner');
+    const member = await seedProfile('Member');
+    const family = await seedFamily(owner.id, 'Family H');
+    await addFamilyMember(family.id, member.id);
+    const poll = await seedPoll(family.id, member.id, 'Poll H');
+
+    await closePoll(owner.id, poll.id);
+
+    const result = await withUserContext(owner.id, (client) =>
+      client.query<{ is_open: boolean }>(
+        'SELECT is_open FROM public.family_watch_polls WHERE id = $1',
+        [poll.id],
+      ),
+    );
+    expect(result.rows[0].is_open).toBe(false);
+  });
+
+  it("does not let a plain member close another member's poll", async () => {
+    const owner = await seedProfile('Owner');
+    const memberA = await seedProfile('Member A');
+    const memberB = await seedProfile('Member B');
+    const family = await seedFamily(owner.id, 'Family I');
+    await addFamilyMember(family.id, memberA.id);
+    await addFamilyMember(family.id, memberB.id);
+    const poll = await seedPoll(family.id, memberA.id, 'Poll I');
+
+    // An UPDATE that touches zero rows under RLS is a silent no-op, not an
+    // error, so assert the poll is still open afterward.
+    await closePoll(memberB.id, poll.id);
+
+    const result = await withUserContext(owner.id, (client) =>
+      client.query<{ is_open: boolean }>(
+        'SELECT is_open FROM public.family_watch_polls WHERE id = $1',
+        [poll.id],
+      ),
+    );
+    expect(result.rows[0].is_open).toBe(true);
   });
 });
