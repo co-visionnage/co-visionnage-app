@@ -20,10 +20,25 @@ export async function checkRateLimit(
 }
 
 export function getClientIp(request: Request): string {
-  const forwardedFor = request.headers.get('x-forwarded-for');
-  if (forwardedFor) {
-    return forwardedFor.split(',')[0].trim();
+  // X-Real-IP should be set by the reverse proxy with
+  // `proxy_set_header X-Real-IP $remote_addr` (nginx), which REPLACES any
+  // value the client sent rather than appending to it, so it can't be
+  // spoofed by a request header -- prefer it when present.
+  const realIp = request.headers.get('x-real-ip');
+  if (realIp) {
+    return realIp.trim();
   }
 
-  return request.headers.get('x-real-ip') ?? 'unknown';
+  // X-Forwarded-For is normally built by each hop APPENDING its own
+  // observed address (nginx: `X-Forwarded-For $proxy_add_x_forwarded_for`),
+  // so with a single reverse proxy in front of this app the LAST entry is
+  // the address the proxy itself saw. The FIRST entry is whatever the
+  // client chose to put there and must never be trusted for rate limiting.
+  const forwardedFor = request.headers.get('x-forwarded-for');
+  if (forwardedFor) {
+    const hops = forwardedFor.split(',').map((hop) => hop.trim());
+    return hops[hops.length - 1];
+  }
+
+  return 'unknown';
 }
