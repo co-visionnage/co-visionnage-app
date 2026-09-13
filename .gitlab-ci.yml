@@ -1,0 +1,331 @@
+# =============================================================================
+# CI/CD pipeline for co-visionnage-app
+#
+# Fast path (every branch, every commit): lint, typecheck, unit tests,
+# integration tests against a real ephemeral Postgres, SAST, Secret
+# Detection, and a filesystem vulnerability/secret scan (Trivy).
+#
+# Heavy path (main branch only): everything above, plus building and
+# pushing Docker images, scanning those images, running the full Playwright
+# e2e suite, a DAST baseline scan (OWASP ZAP) against a throwaway instance
+# of the just-built images, and a manual-gated deploy over SSH.
+#
+# See docs/CICD.md for the one-time GitLab project setup this pipeline
+# depends on (CI/CD variables, deploy target prerequisites, environments).
+# =============================================================================
+
+include:
+  # Official GitLab security scanners. Each auto-detects whether it applies
+  # (SAST/Dependency Scanning skip if they don't recognize the stack) and
+  # runs in whatever stage/rules it ships with -- deliberately not
+  # reassigning their stage here, since the exact job name and default
+  # stage differ across GitLab versions and analyzers, and getting that
+  # wrong (typo'ing a job name in an override) silently creates a *new*,
+  # broken job instead of failing loudly. GitLab.com auto-adds any stage a
+  # job references, so this is safe to leave alone.
+  - template: Jobs/SAST.gitlab-ci.yml
+  - template: Jobs/Secret-Detection.gitlab-ci.yml
+  - template: Jobs/Dependency-Scanning.gitlab-ci.yml
+
+stages:
+  - quality
+  - test
+  - security
+  - build
+  - verify-image
+  - e2e
+  - dast
+  - deploy
+
+workflow:
+  rules:
+    # Run for every branch push (matches "unit/lint on every feature-branch
+    # commit, heavy stuff only on main" -- gating that happens per-job
+    # below via `rules`, not here). Deliberately not restricted to
+    # merge_request_event, which would skip plain branch pushes with no
+    # open MR yet.
+    - if: '$CI_COMMIT_BRANCH'
+
+# -----------------------------------------------------------------------------
+# Shared job templates
+# -----------------------------------------------------------------------------
+
+.pnpm-job:
+  image: node:24-alpine
+  cache:
+    key:
+      files:
+        - pnpm-lock.yaml
+    paths:
+      - .pnpm-store
+  before_script:
+    # Matches the Dockerfile's deps stage -- some native postinstall
+    # binaries (e.g. oxlint, @next/swc) need this glibc-compat shim on
+    # musl-based Alpine.
+    - apk add --no-cache libc6-compat
+    - corepack enable
+    - pnpm config set store-dir .pnpm-store
+    - pnpm install --frozen-lockfile
+
+.postgres-service:
+  services:
+    - name: postgres:16-alpine
+      alias: postgres
+  variables:
+    POSTGRES_DB: covisionnage_ci
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: ci-postgres-password
+    APP_DB_PASSWORD: ci-app-password
+    MIGRATE_DATABASE_URL: postgresql://postgres:ci-postgres-password@postgres:5432/covisionnage_ci
+    DATABASE_URL: postgresql://app_user:ci-app-password@postgres:5432/covisionnage_ci
+
+.main-only:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+# -----------------------------------------------------------------------------
+# quality (every branch)
+# -----------------------------------------------------------------------------
+
+lint:
+  extends: .pnpm-job
+  stage: quality
+  script:
+    - pnpm exec eslint .
+
+typecheck:
+  extends: .pnpm-job
+  stage: quality
+  script:
+    - pnpm exec tsc --noEmit
+
+# -----------------------------------------------------------------------------
+# test (every branch)
+# -----------------------------------------------------------------------------
+
+unit-tests:
+  extends: .pnpm-job
+  stage: test
+  script:
+    - pnpm exec vitest run --reporter=default --reporter=junit --outputFile=junit-unit.xml
+  artifacts:
+    when: always
+    reports:
+      junit: junit-unit.xml
+    expire_in: 1 week
+
+integration-tests:
+  extends:
+    - .pnpm-job
+    - .postgres-service
+  stage: test
+  script:
+    - node scripts/ci/create-app-role.mjs
+    - node scripts/migrate.mjs
+    - pnpm exec vitest run --config vitest.integration.config.ts --reporter=default --reporter=junit --outputFile=junit-integration.xml
+  artifacts:
+    when: always
+    reports:
+      junit: junit-integration.xml
+    expire_in: 1 week
+
+# -----------------------------------------------------------------------------
+# security (every branch) -- our own scanners, alongside the included
+# SAST/Secret-Detection/Dependency-Scanning templates above
+# -----------------------------------------------------------------------------
+
+trivy-filesystem-scan:
+  stage: security
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: ['']
+  script:
+    # exit-code 0: report-only for now -- 100+ known advisories already
+    # exist in the dependency tree (see GitLab's own Dependabot-equivalent
+    # alert on this project) and a hard gate would block every pipeline
+    # immediately. Tighten this (drop allow_failure, or add
+    # --exit-code 1 scoped to just CRITICAL) once that backlog is cleared.
+    - trivy fs --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --exit-code 0 --format table .
+  allow_failure: true
+
+# -----------------------------------------------------------------------------
+# build (main only) -- kaniko, not docker-in-docker: no privileged runner
+# needed, and it's GitLab's own recommended approach for building in CI.
+# -----------------------------------------------------------------------------
+
+.kaniko-build:
+  extends: .main-only
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:v1.23.2-debug
+    entrypoint: ['']
+  before_script:
+    - mkdir -p /kaniko/.docker
+    - >-
+      echo "{\"auths\":{\"${CI_REGISTRY}\":{\"username\":\"${CI_REGISTRY_USER}\",\"password\":\"${CI_REGISTRY_PASSWORD}\"}}}"
+      > /kaniko/.docker/config.json
+
+build-app-image:
+  extends: .kaniko-build
+  script:
+    - >-
+      /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/Dockerfile"
+      --target runner
+      --destination "${CI_REGISTRY_IMAGE}/app:${CI_COMMIT_SHORT_SHA}"
+      --destination "${CI_REGISTRY_IMAGE}/app:latest"
+      --cache=true
+      --cache-repo "${CI_REGISTRY_IMAGE}/cache"
+
+build-migrate-image:
+  extends: .kaniko-build
+  script:
+    - >-
+      /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/Dockerfile"
+      --target migrator
+      --destination "${CI_REGISTRY_IMAGE}/migrate:${CI_COMMIT_SHORT_SHA}"
+      --destination "${CI_REGISTRY_IMAGE}/migrate:latest"
+      --cache=true
+      --cache-repo "${CI_REGISTRY_IMAGE}/cache"
+
+# -----------------------------------------------------------------------------
+# verify-image (main only)
+# -----------------------------------------------------------------------------
+
+container-scan-app:
+  extends: .main-only
+  stage: verify-image
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: ['']
+  needs:
+    - build-app-image
+  variables:
+    TRIVY_USERNAME: $CI_REGISTRY_USER
+    TRIVY_PASSWORD: $CI_REGISTRY_PASSWORD
+  script:
+    - trivy image --severity HIGH,CRITICAL --exit-code 0 --format table "${CI_REGISTRY_IMAGE}/app:${CI_COMMIT_SHORT_SHA}"
+  allow_failure: true
+
+# -----------------------------------------------------------------------------
+# e2e (main only) -- the heavy suite, per the "gate expensive stuff to main"
+# decision. Uses Playwright's own image with browsers preinstalled instead
+# of node:24-alpine, so it doesn't need to download Chromium every run.
+#
+# NOTE: keep this tag's version in lockstep with @playwright/test in
+# package.json (currently ^1.63.0) -- a mismatch fails fast with a clear
+# "browser binary / library version" error from Playwright itself.
+# -----------------------------------------------------------------------------
+
+e2e-tests:
+  extends:
+    - .main-only
+    - .postgres-service
+  stage: e2e
+  image: mcr.microsoft.com/playwright:v1.63.0-noble
+  variables:
+    E2E_PORT: '3399'
+    PLAYWRIGHT_JUNIT_OUTPUT_NAME: junit-e2e.xml
+  before_script:
+    - corepack enable
+    - pnpm install --frozen-lockfile
+    - node scripts/ci/create-app-role.mjs
+  script:
+    - pnpm exec playwright test --reporter=list,junit
+  artifacts:
+    when: always
+    reports:
+      junit: junit-e2e.xml
+    paths:
+      - playwright-report/
+      - test-results/
+    expire_in: 1 week
+
+# -----------------------------------------------------------------------------
+# dast (main only) -- OWASP ZAP baseline (passive crawl + scan) against a
+# throwaway instance of the images built above, using
+# docker-compose.ci.yml's disposable secrets. This is the least
+# battle-tested job in this pipeline (compose-in-dind networking is fiddly)
+# -- expect to iterate on it once you see a real run's logs.
+# -----------------------------------------------------------------------------
+
+dast-zap-baseline:
+  extends: .main-only
+  stage: dast
+  image: docker:27
+  services:
+    - docker:27-dind
+  needs:
+    - build-app-image
+    - build-migrate-image
+  variables:
+    DOCKER_TLS_CERTDIR: '/certs'
+    COMPOSE_PROJECT_NAME: cov_dast
+    IMAGE_TAG: $CI_COMMIT_SHORT_SHA
+  script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    - docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d
+    - |
+      for i in $(seq 1 30); do
+        docker compose -f docker-compose.yml -f docker-compose.ci.yml exec -T app \
+          wget -qO- http://localhost:3000 > /dev/null 2>&1 && break
+        echo "waiting for app to come up ($i/30)..."
+        sleep 2
+      done
+    - >-
+      docker run --rm --network cov_dast_notre-cinema-net
+      -v "$(pwd):/zap/wrk/:rw" -t ghcr.io/zaproxy/zaproxy:stable
+      zap-baseline.py -t http://app:3000 -r zap-report.html || true
+  after_script:
+    - docker compose -f docker-compose.yml -f docker-compose.ci.yml down -v
+  artifacts:
+    when: always
+    paths:
+      - zap-report.html
+    expire_in: 1 week
+  allow_failure: true
+
+# -----------------------------------------------------------------------------
+# deploy (main only, manual) -- SSH in and swap the running containers to
+# the image just built. Manual on purpose: this deploys straight to
+# production with no staging environment in front of it, so a human click
+# is the safety gate rather than every main-branch merge auto-deploying.
+# Flip `when: manual` to `when: on_success` once you're comfortable with
+# that.
+#
+# Assumes the server already has this repo cloned at $DEPLOY_PATH, is
+# logged into the registry (`docker login`, once, using a Deploy Token --
+# see docs/CICD.md), and its own .env has CI_REGISTRY_IMAGE set so
+# docker-compose.yml's `image:` fields resolve. docker compose itself
+# handles migrate-then-app ordering (see the `depends_on:
+# service_completed_successfully` in docker-compose.yml).
+# -----------------------------------------------------------------------------
+
+deploy-production:
+  extends: .main-only
+  stage: deploy
+  image: alpine:3.20
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      when: manual
+  environment:
+    name: production
+    url: https://$PRODUCTION_HOST
+  before_script:
+    - apk add --no-cache openssh-client
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+    - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
+  script:
+    - >-
+      ssh "$SSH_USER@$SSH_HOST"
+      "cd $DEPLOY_PATH &&
+       git fetch origin &&
+       git checkout $CI_COMMIT_SHA &&
+       export IMAGE_TAG=$CI_COMMIT_SHORT_SHA &&
+       docker compose pull &&
+       docker compose up -d --remove-orphans &&
+       docker image prune -f"

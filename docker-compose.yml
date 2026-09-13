@@ -2,6 +2,13 @@ services:
   app:
     env_file:
       - .env
+    # `image` lets a deploy do `docker compose pull` against a pre-built
+    # image from CI instead of rebuilding on the server; `build` is still
+    # here so local dev keeps working with `docker compose up --build`.
+    # CI_REGISTRY_IMAGE/IMAGE_TAG are only meaningful on a deploy host
+    # (set them in its .env) -- unset, this resolves to a local tag that
+    # `--build` produces and reuses fine.
+    image: ${CI_REGISTRY_IMAGE:-co-visionnage-app}/app:${IMAGE_TAG:-latest}
     build: .
     container_name: notre-cinema-app
     restart: always
@@ -21,6 +28,7 @@ services:
   migrate:
     env_file:
       - .env
+    image: ${CI_REGISTRY_IMAGE:-co-visionnage-app}/migrate:${IMAGE_TAG:-latest}
     build:
       context: .
       target: migrator
