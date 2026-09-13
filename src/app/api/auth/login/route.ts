@@ -106,6 +106,22 @@ export async function POST(request: Request) {
   }
 
   if (mode === 'register') {
+    const isWithinEmailLimit = await checkRateLimit(
+      `auth:register-email:${email}`,
+      EMAIL_RATE_LIMIT_MAX_ATTEMPTS,
+      EMAIL_RATE_LIMIT_WINDOW_SECONDS,
+    );
+
+    if (!isWithinEmailLimit) {
+      return NextResponse.json(
+        {
+          error:
+            'Слишком много попыток регистрации для этого email. Попробуйте позже.',
+        },
+        { status: 429 },
+      );
+    }
+
     if (!displayName || displayName.length < 2) {
       return NextResponse.json(
         { error: 'Укажите имя не короче 2 символов' },
