@@ -12,7 +12,16 @@ import {
   getFamilyPushSubscriptions,
   sendPushNotifications,
 } from '@/shared/lib/push/notifyFamily';
+import { checkRateLimit } from '@/shared/lib/rateLimit';
 import { SeriesData } from '@/shared/types';
+
+// addSeriesAction/markWatchedAction/addSeriesBulkAction all funnel through
+// this one helper -- rate-limiting it here (rather than at each call site)
+// stops a single user from spamming every family member's email/push by
+// looping any of those actions, without having to remember to add the
+// check again at every future call site too.
+const NOTIFY_RATE_LIMIT_MAX_ATTEMPTS = 30;
+const NOTIFY_RATE_LIMIT_WINDOW_SECONDS = 10 * 60;
 
 async function notifyFamilyOfEvent(
   userId: string,
@@ -21,6 +30,18 @@ async function notifyFamilyOfEvent(
   body: string,
 ) {
   try {
+    const isWithinLimit = await checkRateLimit(
+      `notify-family:user:${userId}`,
+      NOTIFY_RATE_LIMIT_MAX_ATTEMPTS,
+      NOTIFY_RATE_LIMIT_WINDOW_SECONDS,
+    );
+    if (!isWithinLimit) {
+      console.warn(
+        `notifyFamilyOfEvent: rate limit hit for user ${userId}, skipping notification`,
+      );
+      return;
+    }
+
     const { emails, subscriptions } = await withUserContext(
       userId,
       async (client) => ({

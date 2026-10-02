@@ -8,20 +8,13 @@ import {
 } from '@/shared/api/postgres/server';
 import { setActiveFamilyIdCookie } from '@/shared/lib/activeFamily';
 import { logFamilyActivity } from '@/shared/lib/activityLog';
+import { generateInviteCode } from '@/shared/lib/family/generateInviteCode';
+import { checkRateLimit } from '@/shared/lib/rateLimit';
 
 export type FamilyActionState = {
   error?: string;
   success?: boolean;
 };
-
-function generateInviteCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let result = '';
-  for (let index = 0; index < 6; index++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return `BRTL-${result}`;
-}
 
 const MAX_INVITE_CODE_ATTEMPTS = 5;
 
@@ -96,6 +89,9 @@ export async function createFamily(
   return { success: true };
 }
 
+const JOIN_FAMILY_RATE_LIMIT_MAX_ATTEMPTS = 10;
+const JOIN_FAMILY_RATE_LIMIT_WINDOW_SECONDS = 10 * 60;
+
 export async function joinFamily(
   _previousState: FamilyActionState,
   formData: FormData,
@@ -107,6 +103,20 @@ export async function joinFamily(
 
   if (!user) return { error: 'Не авторизован' };
   if (!inviteCode) return { error: 'Введите код' };
+
+  // joinFamily was the only action in the app with no throttling at all --
+  // unlike login/register/upload/import, an unlimited number of guesses
+  // against a 6-character invite code was possible. Per-user rather than
+  // per-IP since server actions have no Request to read a client IP from
+  // (same reasoning as checkSeriesUpdatesAction's rate limit).
+  const isWithinLimit = await checkRateLimit(
+    `join-family:user:${user.id}`,
+    JOIN_FAMILY_RATE_LIMIT_MAX_ATTEMPTS,
+    JOIN_FAMILY_RATE_LIMIT_WINDOW_SECONDS,
+  );
+  if (!isWithinLimit) {
+    return { error: 'Слишком много попыток. Попробуйте позже.' };
+  }
 
   try {
     const result = await withUserContext(user.id, async (client) => {

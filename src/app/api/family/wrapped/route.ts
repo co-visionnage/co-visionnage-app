@@ -5,8 +5,14 @@ import { getYearWrapped } from '@/shared/api/postgres/queries';
 export async function GET(request: NextRequest) {
   const familyId = request.nextUrl.searchParams.get('familyId');
   const yearParameter = request.nextUrl.searchParams.get('year');
-  const year = yearParameter
+  const parsedYear = yearParameter
     ? Number.parseInt(yearParameter, 10)
+    : Number.NaN;
+  // A non-numeric ?year (NaN) would otherwise reach Postgres as an invalid
+  // integer literal and surface as an opaque 500 -- fall back to the
+  // current year instead, same as when the param is absent.
+  const year = Number.isFinite(parsedYear)
+    ? parsedYear
     : new Date().getFullYear();
 
   if (!familyId) {

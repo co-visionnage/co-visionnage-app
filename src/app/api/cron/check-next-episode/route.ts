@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { query } from '@/shared/api/postgres/database';
-import { ENV } from '@/shared/config/environment';
 import { mapWithConcurrency } from '@/shared/lib/concurrency';
+import { isAuthorizedCronRequest } from '@/shared/lib/cron/isAuthorizedCronRequest';
 import { findNextEpisode } from '@/shared/lib/nextEpisode/tmdb';
 
 const CONCURRENCY = 5;
@@ -15,15 +15,8 @@ type TrackedSeries = {
   external_id: string;
 };
 
-function isAuthorized(request: NextRequest) {
-  if (!ENV.CRON_SECRET) return false;
-
-  const header = request.headers.get('authorization');
-  return header === `Bearer ${ENV.CRON_SECRET}`;
-}
-
 export async function POST(request: NextRequest) {
-  if (!isAuthorized(request)) {
+  if (!isAuthorizedCronRequest(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

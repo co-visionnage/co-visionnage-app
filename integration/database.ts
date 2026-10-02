@@ -137,7 +137,7 @@ export async function seedFamily(
 export async function addFamilyMember(
   familyId: string,
   userId: string,
-  role: 'owner' | 'member' = 'member',
+  role: 'owner' | 'admin' | 'member' = 'member',
 ): Promise<void> {
   await adminPool.query(
     `
