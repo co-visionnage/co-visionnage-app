@@ -11,7 +11,7 @@
     "lint:oxc": "oxlint",
     "lint:types": "tsc --noEmit",
     "format": "prettier . --write",
-    "migrate": "node scripts/migrate.mjs",
+    "migrate": "npm --prefix ../notrecinema-schema run migrate",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",

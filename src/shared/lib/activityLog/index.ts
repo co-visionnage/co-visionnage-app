@@ -9,7 +9,7 @@ export type FamilyActivityAction =
 
 /**
  * Appends one row to family_activity_log using the caller's own RLS-scoped
- * client (see database/init.sql, migration 014) — must run inside the same
+ * client (see notrecinema-schema/migrations, migration 014) — must run inside the same
  * withUserContext(actorId, ...) transaction as the action it's logging, so
  * failures roll back together with it instead of leaving an orphaned entry.
  */

@@ -2,7 +2,7 @@ import { query } from '@/shared/api/postgres/database';
 
 /**
  * Fixed-window rate limiter backed by public.check_rate_limit (see
- * database/init.sql, migration 014). Increments the bucket and returns
+ * notrecinema-schema/migrations, migration 014). Increments the bucket and returns
  * whether the caller is still within the allowed attempt count for the
  * current window — call it before doing the actual work, not after.
  */

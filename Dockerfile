@@ -17,14 +17,6 @@ ENV NEXT_TELEMETRY_DISABLED 1
 ENV DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy
 RUN pnpm run build
 
-FROM base AS migrator
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY package.json ./
-COPY scripts ./scripts
-COPY database ./database
-CMD ["node", "scripts/migrate.mjs"]
-
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV production

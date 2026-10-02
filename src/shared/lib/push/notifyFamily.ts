@@ -101,7 +101,7 @@ export async function sendPushNotifications(
 
 // System variant for scheduled jobs that don't run in a logged-in user's
 // request — see the SECURITY DEFINER note on get_family_push_subscriptions_system
-// in database/init.sql for why this bypasses the usual membership check.
+// in notrecinema-schema/migrations for why this bypasses the usual membership check.
 export async function notifyFamilySystem(
   client: QueryClient,
   familyId: string,
