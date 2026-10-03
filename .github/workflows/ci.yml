@@ -8,7 +8,7 @@ jobs:
   checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -54,20 +54,20 @@ jobs:
       # The other repositories are private: E2E_CHECKOUT_TOKEN is a token
       # with read access to them (the default GITHUB_TOKEN cannot read
       # other repositories).
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: notrecinema-app
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: co-visionnage/notrecinema-api
           path: notrecinema-api
           token: ${{ secrets.E2E_CHECKOUT_TOKEN }}
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: co-visionnage/notrecinema-worker
           path: notrecinema-worker
           token: ${{ secrets.E2E_CHECKOUT_TOKEN }}
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: co-visionnage/database
           path: notrecinema-schema
