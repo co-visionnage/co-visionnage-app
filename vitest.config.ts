@@ -17,10 +17,7 @@ export default defineConfig({
     // the test worker. Disabling it on the worker process (not the parent
     // vitest process, so this works regardless of how `vitest` itself was
     // invoked) restores jsdom's normal behavior.
-    poolOptions: {
-      forks: { execArgv: ['--no-experimental-webstorage'] },
-      threads: { execArgv: ['--no-experimental-webstorage'] },
-    },
+    execArgv: ['--no-experimental-webstorage'],
     setupFiles: ['./vitest.setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
     exclude: ['e2e/**'],

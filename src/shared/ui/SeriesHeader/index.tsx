@@ -1,6 +1,6 @@
 'use client';
 
-import { Github, LogOut, Mail, Settings2, UserPlus } from 'lucide-react';
+import { LogOut, Mail, Settings2, UserPlus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 
@@ -10,6 +10,7 @@ import { TwoFactorSettings } from '@/features/two-factor';
 import { createClient } from '@/shared/api/go/client';
 import { useAppSounds, useUiPreferences } from '@/shared/hooks';
 import { AppTheme, AuthMode } from '@/shared/types';
+import { GitHubIcon } from '@/shared/ui/GitHubIcon';
 import {
   Button,
   Checkbox,
@@ -560,7 +561,7 @@ export const SeriesHeader = ({
                       disabled={isPending}
                       onClick={handleGitHubLogin}
                     >
-                      <Github size={28} />
+                      <GitHubIcon size={28} />
                       {isPending ? 'Перенаправляем...' : 'Войти по GitHub'}
                     </Button>
                   </div>

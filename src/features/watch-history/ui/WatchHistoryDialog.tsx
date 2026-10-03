@@ -44,6 +44,12 @@ function groupByMonth(entries: WatchHistoryEntry[]) {
   return [...groups.entries()];
 }
 
+// Keys look like "2026-Октябрь": year first, then the month label.
+function formatMonthKey(monthKey: string) {
+  const [year, month] = monthKey.split('-');
+  return `${month} ${year}`;
+}
+
 interface WatchHistoryDialogProperties {
   familyId: string;
 }
@@ -118,7 +124,7 @@ export const WatchHistoryDialog = ({
           {groups.map(([monthKey, entries]) => (
             <div key={monthKey}>
               <p className='mb-2 border-b-2 border-black pb-1 text-sm font-black text-black uppercase'>
-                {monthKey.split('-')[1]} {monthKey.split('-')[0]}
+                {formatMonthKey(monthKey)}
               </p>
               <div className='grid gap-2'>
                 {entries.map((entry, index) => (
