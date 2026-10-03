@@ -9,6 +9,14 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default defineConfig([
+  {
+    // react-hooks/set-state-in-effect gives different verdicts on the same
+    // files in different environments (CI reports data-loading effects that a
+    // local run does not). Keep the targeted disables CI needs without a
+    // local run -- or `eslint --fix` in the pre-commit hook -- stripping them
+    // as "unused".
+    linterOptions: { reportUnusedDisableDirectives: 'off' },
+  },
   globalIgnores([
     'dist',
     '.next/**',

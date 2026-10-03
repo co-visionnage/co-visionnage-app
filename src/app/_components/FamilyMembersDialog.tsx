@@ -74,6 +74,7 @@ export function FamilyMembersDialog({
 
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- fetches data from the server when it is needed, not derived from render state
       void loadMembers();
     }
   }, [isOpen, loadMembers]);
