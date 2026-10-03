@@ -1,5 +1,6 @@
-import { getHomePageData } from '@/shared/api/postgres/queries';
-import { getCurrentUser } from '@/shared/api/postgres/server';
+import { EmailVerificationBanner } from '@/features/email-verification';
+import { getHomePageData } from '@/shared/api/go/queries';
+import { getCurrentUser } from '@/shared/api/go/session';
 import { getActiveFamilyIdCookie } from '@/shared/lib/activeFamily';
 import { SeriesStatus } from '@/shared/types';
 import { SeriesHeader } from '@/shared/ui';
@@ -24,6 +25,13 @@ export default async function HomePage() {
     );
   }
 
+  // Баннер «email не подтверждён» стоит здесь, а не в корневом layout:
+  // чтение сессии в layout сделало бы динамическими все страницы, включая
+  // статические юридические.
+  const banner = user.emailVerified ? undefined : (
+    <EmailVerificationBanner email={user.email} />
+  );
+
   const preferredFamilyId = await getActiveFamilyIdCookie();
   const { membership, memberships, series } =
     await getHomePageData(preferredFamilyId);
@@ -31,37 +39,43 @@ export default async function HomePage() {
 
   if (!familyData) {
     return (
-      <div className='brutal-font min-h-screen bg-blue-500 p-8'>
-        <SeriesHeader
-          userDisplayName={user.displayName ?? user.email}
-          userEmail={user.email}
-        />
-        <div className='flex flex-col items-center justify-center py-10'>
-          <div className='w-full max-w-md border-4 border-black bg-white p-8 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)]'>
-            <h1 className='mb-6 text-4xl font-black tracking-tighter text-black uppercase'>
-              Семья не найдена
-            </h1>
-            <CreateFamilyForm />
-            <div className='my-6 border-t-4 border-dashed border-black' />
-            <JoinFamilyForm />
+      <>
+        {banner}
+        <div className='brutal-font min-h-screen bg-blue-500 p-8'>
+          <SeriesHeader
+            userDisplayName={user.displayName ?? user.email}
+            userEmail={user.email}
+          />
+          <div className='flex flex-col items-center justify-center py-10'>
+            <div className='w-full max-w-md border-4 border-black bg-white p-8 shadow-[12px_12px_0px_0px_rgba(0,0,0,1)]'>
+              <h1 className='mb-6 text-4xl font-black tracking-tighter text-black uppercase'>
+                Семья не найдена
+              </h1>
+              <CreateFamilyForm />
+              <div className='my-6 border-t-4 border-dashed border-black' />
+              <JoinFamilyForm />
+            </div>
           </div>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <ClientTrackerWrapper
-      currentUserId={user.id}
-      currentUserRole={membership.role}
-      family={familyData}
-      initialSeries={series.map((item) => ({
-        ...item,
-        status: item.status as SeriesStatus,
-      }))}
-      memberships={memberships}
-      userDisplayName={user.displayName ?? user.email}
-      userEmail={user.email}
-    />
+    <>
+      {banner}
+      <ClientTrackerWrapper
+        currentUserId={user.id}
+        currentUserRole={membership.role}
+        family={familyData}
+        initialSeries={series.map((item) => ({
+          ...item,
+          status: item.status as SeriesStatus,
+        }))}
+        memberships={memberships}
+        userDisplayName={user.displayName ?? user.email}
+        userEmail={user.email}
+      />
+    </>
   );
 }

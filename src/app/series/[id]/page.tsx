@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
-import { getSeriesById } from '@/shared/api/postgres/queries';
-import { getCurrentUser } from '@/shared/api/postgres/server';
+import { getSeriesById } from '@/shared/api/go/queries';
+import { getCurrentUser } from '@/shared/api/go/session';
 import { SeriesHeader } from '@/shared/ui';
 import { SeriesDetailView } from './SeriesDetailView';
 

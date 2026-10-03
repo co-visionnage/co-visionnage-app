@@ -42,7 +42,7 @@ export function createClient() {
   return {
     auth: {
       async login(payload: LoginPayload) {
-        const response = await fetch('/api/auth/login', {
+        const response = await fetch('/api/v1/auth/login', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -57,7 +57,7 @@ export function createClient() {
         }>(response);
       },
       async verifyTwoFactor(challengeToken: string, code: string) {
-        const response = await fetch('/api/auth/verify-2fa', {
+        const response = await fetch('/api/v1/auth/verify-2fa', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -68,20 +68,22 @@ export function createClient() {
         return readJson<{ success: true }>(response);
       },
       async getTwoFactorStatus() {
-        const response = await fetch('/api/auth/2fa-status', {
+        const response = await fetch('/api/v1/auth/2fa/status', {
           cache: 'no-store',
         });
 
-        return readJson<{ enabled: boolean }>(response);
+        return readJson<{ enabled: boolean; backupCodesRemaining?: number }>(
+          response,
+        );
       },
       startGitHubLogin(legalAccepted: boolean) {
         const searchParameters = new URLSearchParams({
           legalAccepted: String(legalAccepted),
         });
-        globalThis.location.href = `/api/auth/github/start?${searchParameters.toString()}`;
+        globalThis.location.href = `/api/v1/auth/github/start?${searchParameters.toString()}`;
       },
       async logout() {
-        const response = await fetch('/api/auth/logout', {
+        const response = await fetch('/api/v1/auth/logout', {
           method: 'POST',
         });
 

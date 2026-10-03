@@ -14,7 +14,11 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED 1
-ENV DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy
+# next.config.ts bakes the /api/v1 rewrite destination in at build time, so
+# the address the Go API has on the container network must be known here
+# (and match the API_URL the container runs with).
+ARG API_URL=http://api:8080
+ENV API_URL=$API_URL
 RUN pnpm run build
 
 FROM base AS runner

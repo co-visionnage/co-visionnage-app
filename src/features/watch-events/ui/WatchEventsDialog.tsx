@@ -8,7 +8,7 @@ import {
   deleteWatchEventAction,
   setWatchEventRsvpAction,
 } from '@/shared/actions/watch-events-postgres';
-import { createClient } from '@/shared/api/postgres/client';
+import { createClient } from '@/shared/api/go/client';
 import { useAppSounds } from '@/shared/hooks';
 import { RsvpStatus, Series, WatchEvent } from '@/shared/types';
 import {

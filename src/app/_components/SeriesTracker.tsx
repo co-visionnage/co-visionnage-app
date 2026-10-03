@@ -17,7 +17,7 @@ import {
   markWatchedAction as markWatched,
   moveToWatchListAction as moveToWatchList,
 } from '@/shared/actions/series-postgres';
-import { createClient } from '@/shared/api/postgres/client';
+import { createClient } from '@/shared/api/go/client';
 import { useAppSounds, useDebounce, useUiPreferences } from '@/shared/hooks';
 import {
   FamilyMembership,

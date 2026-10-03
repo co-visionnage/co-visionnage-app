@@ -1,10 +1,10 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { getYearWrapped } from '@/shared/api/postgres/queries';
+import { getYearWrapped } from '@/shared/api/go/queries';
 import { GET } from './route';
 
-vi.mock('@/shared/api/postgres/queries', () => ({
+vi.mock('@/shared/api/go/queries', () => ({
   getYearWrapped: vi.fn().mockResolvedValue({}),
 }));
 

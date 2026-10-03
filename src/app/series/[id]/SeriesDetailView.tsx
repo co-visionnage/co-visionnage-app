@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { SeriesPoster } from '@/entities/series';
 import { EpisodeProgressControl, SeriesDiscussionDialog } from '@/features';
 import { checkSeriesUpdatesAction } from '@/shared/actions/season-tracking-postgres';
-import { createClient } from '@/shared/api/postgres/client';
+import { createClient } from '@/shared/api/go/client';
 import { useAppSounds } from '@/shared/hooks';
 import { toYoutubeEmbedUrl } from '@/shared/lib/youtube';
 import { Series, SeriesProgress } from '@/shared/types';

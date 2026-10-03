@@ -1,4 +1,9 @@
 export { DeleteAccountButton } from './account-deletion';
+export {
+  EmailVerificationBanner,
+  VerifyEmailStatus,
+} from './email-verification';
+export { ForgotPasswordForm, ResetPasswordForm } from './password-reset';
 export { AddSeriesDialog } from './add-series';
 export { BulkImportDialog } from './bulk-import';
 export { AchievementsDialog } from './achievements';

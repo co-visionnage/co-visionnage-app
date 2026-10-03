@@ -4,13 +4,11 @@ import {
   loginUserSession,
   registerUserSession,
 } from '@/shared/api/postgres/auth';
+import { getPasswordProblem } from '@/shared/lib/password';
 import { checkRateLimit, getClientIp } from '@/shared/lib/rateLimit';
 import { AuthMode } from '@/shared/types';
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const hasLetterPattern = /[A-Za-zА-Яа-яЁё]/;
-const hasDigitPattern = /\d/;
-const hasSpecialPattern = /[^A-Za-zА-Яа-яЁё0-9]/;
 
 const IP_RATE_LIMIT_MAX_ATTEMPTS = 30;
 const IP_RATE_LIMIT_WINDOW_SECONDS = 15 * 60;
@@ -67,24 +65,10 @@ export async function POST(request: Request) {
     );
   }
 
-  if (password.length < 8) {
-    return NextResponse.json(
-      { error: 'Пароль должен быть не короче 8 символов' },
-      { status: 400 },
-    );
-  }
+  const passwordProblem = getPasswordProblem(password);
 
-  if (
-    !hasLetterPattern.test(password) ||
-    !hasDigitPattern.test(password) ||
-    !hasSpecialPattern.test(password)
-  ) {
-    return NextResponse.json(
-      {
-        error: 'Пароль должен содержать буквы, цифры и хотя бы один спецсимвол',
-      },
-      { status: 400 },
-    );
+  if (passwordProblem) {
+    return NextResponse.json({ error: passwordProblem }, { status: 400 });
   }
 
   if (mode === 'login') {

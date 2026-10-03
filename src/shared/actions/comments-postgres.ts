@@ -2,15 +2,15 @@
 
 import { revalidatePath } from 'next/cache';
 
-import {
-  requireCurrentUser,
-  withUserContext,
-} from '@/shared/api/postgres/server';
+import { actionErrorMessage, apiJson } from '@/shared/api/go/server';
+import { requireCurrentUser } from '@/shared/api/go/session';
 
 export type CommentActionState = {
   error?: string;
   success?: boolean;
 };
+
+type ReactionDto = { userId: string; emoji: string };
 
 export async function addSeriesCommentAction(
   seriesId: string,
@@ -27,27 +27,17 @@ export async function addSeriesCommentAction(
   }
 
   try {
-    await withUserContext(user.id, async (client) => {
-      await client.query(
-        `
-          INSERT INTO public.family_series_comments (series_id, user_id, body, spoiler_season, spoiler_episode)
-          VALUES ($1, $2, $3, $4, $5)
-        `,
-        [
-          seriesId,
-          user.id,
-          trimmedBody,
-          spoiler?.season ?? undefined,
-          spoiler?.episode ?? undefined,
-        ],
-      );
+    await apiJson(`/series/${encodeURIComponent(seriesId)}/comments`, {
+      method: 'POST',
+      body: {
+        body: trimmedBody,
+        spoilerSeason: spoiler?.season,
+        spoilerEpisode: spoiler?.episode,
+      },
     });
   } catch (error) {
     return {
-      error:
-        error instanceof Error
-          ? error.message
-          : 'Не удалось добавить комментарий',
+      error: actionErrorMessage(error, 'Не удалось добавить комментарий'),
     };
   }
 
@@ -63,18 +53,12 @@ export async function deleteSeriesCommentAction(
   if (!user) return { error: 'Не авторизован' };
 
   try {
-    await withUserContext(user.id, async (client) => {
-      await client.query(
-        'DELETE FROM public.family_series_comments WHERE id = $1',
-        [commentId],
-      );
+    await apiJson(`/comments/${encodeURIComponent(commentId)}`, {
+      method: 'DELETE',
     });
   } catch (error) {
     return {
-      error:
-        error instanceof Error
-          ? error.message
-          : 'Не удалось удалить комментарий',
+      error: actionErrorMessage(error, 'Не удалось удалить комментарий'),
     };
   }
 
@@ -82,6 +66,8 @@ export async function deleteSeriesCommentAction(
   return { success: true };
 }
 
+// The API has separate add/remove endpoints; "toggle" is decided here from
+// the current reactions of the signed-in user.
 export async function toggleSeriesReactionAction(
   seriesId: string,
   emoji: string,
@@ -90,40 +76,20 @@ export async function toggleSeriesReactionAction(
 
   if (!user) return { error: 'Не авторизован' };
 
+  const base = `/series/${encodeURIComponent(seriesId)}/reactions`;
+
   try {
-    await withUserContext(user.id, async (client) => {
-      const existing = await client.query<{ id: string }>(
-        `
-          SELECT id
-          FROM public.family_series_reactions
-          WHERE series_id = $1
-            AND user_id = $2
-            AND emoji = $3
-          LIMIT 1
-        `,
-        [seriesId, user.id, emoji],
-      );
+    const reactions = await apiJson<ReactionDto[]>(base);
+    const reactedByMe = reactions.some(
+      (reaction) => reaction.userId === user.id && reaction.emoji === emoji,
+    );
 
-      if (existing.rows[0]) {
-        await client.query(
-          'DELETE FROM public.family_series_reactions WHERE id = $1',
-          [existing.rows[0].id],
-        );
-        return;
-      }
-
-      await client.query(
-        `
-          INSERT INTO public.family_series_reactions (series_id, user_id, emoji)
-          VALUES ($1, $2, $3)
-        `,
-        [seriesId, user.id, emoji],
-      );
-    });
+    await (reactedByMe
+      ? apiJson(`${base}/${encodeURIComponent(emoji)}`, { method: 'DELETE' })
+      : apiJson(base, { method: 'POST', body: { emoji } }));
   } catch (error) {
     return {
-      error:
-        error instanceof Error ? error.message : 'Не удалось поставить реакцию',
+      error: actionErrorMessage(error, 'Не удалось поставить реакцию'),
     };
   }
 

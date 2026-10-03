@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { getRecommendations } from '@/shared/api/postgres/queries';
+import { getRecommendations } from '@/shared/api/go/queries';
 
 export async function GET(request: NextRequest) {
   const familyId = request.nextUrl.searchParams.get('familyId');

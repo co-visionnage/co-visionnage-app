@@ -201,7 +201,12 @@ export type FamilyActivityAction =
   | 'series_removed'
   | 'member_joined'
   | 'role_changed'
-  | 'ownership_transferred';
+  | 'ownership_transferred'
+  | 'member_removed'
+  | 'series_bulk_added'
+  | 'poll_created'
+  | 'poll_closed'
+  | 'watch_event_created';
 
 export type FamilyActivityEntry = {
   id: string;

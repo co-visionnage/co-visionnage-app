@@ -44,7 +44,7 @@ export type SessionUser = {
   displayName?: string;
 };
 
-function hashToken(token: string) {
+export function hashToken(token: string) {
   return createHash('sha256').update(token).digest('hex');
 }
 
@@ -54,7 +54,7 @@ function getSessionExpiryDate() {
   return expiresAt;
 }
 
-function createPasswordHash(password: string) {
+export function createPasswordHash(password: string) {
   const salt = randomBytes(16).toString('hex');
   const derivedKey = scryptSync(password, salt, PASSWORD_KEY_LENGTH).toString(
     'hex',

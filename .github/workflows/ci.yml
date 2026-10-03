@@ -1,0 +1,119 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec tsc --noEmit
+      - run: pnpm exec eslint .
+      - run: pnpm test
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: checks
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: notrecinema_e2e
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-postgres-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      nats:
+        image: nats:2.10-alpine
+        ports:
+          - 4222:4222
+        options: >-
+          --entrypoint "nats-server"
+    env:
+      CI: 'true'
+      POSTGRES_DB: notrecinema_e2e
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ci-postgres-password
+      APP_DB_PASSWORD: ci-app-password
+      MIGRATE_DATABASE_URL: postgresql://postgres:ci-postgres-password@localhost:5432/notrecinema_e2e
+      DATABASE_URL: postgresql://app_user:ci-app-password@localhost:5432/notrecinema_e2e
+      NATS_URL: nats://localhost:4222
+      PGHOST: localhost
+      PGPASSWORD: ci-postgres-password
+    steps:
+      # The suite runs the whole stack: this frontend next to the API, the
+      # worker and the schema, side by side in the workspace -- the paths in
+      # playwright.config.ts (../notrecinema-api, ...) rely on that layout.
+      # The other repositories are private: E2E_CHECKOUT_TOKEN is a token
+      # with read access to them (the default GITHUB_TOKEN cannot read
+      # other repositories).
+      - uses: actions/checkout@v4
+        with:
+          path: notrecinema-app
+      - uses: actions/checkout@v4
+        with:
+          repository: co-visionnage/notrecinema-api
+          path: notrecinema-api
+          token: ${{ secrets.E2E_CHECKOUT_TOKEN }}
+      - uses: actions/checkout@v4
+        with:
+          repository: co-visionnage/notrecinema-worker
+          path: notrecinema-worker
+          token: ${{ secrets.E2E_CHECKOUT_TOKEN }}
+      - uses: actions/checkout@v4
+        with:
+          repository: co-visionnage/database
+          path: notrecinema-schema
+          token: ${{ secrets.E2E_CHECKOUT_TOKEN }}
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache-dependency-path: |
+            notrecinema-api/go.sum
+            notrecinema-worker/go.sum
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: notrecinema-app/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: notrecinema-app/pnpm-lock.yaml
+
+      - name: Create the app role and install schema tooling
+        run: |
+          sudo apt-get update && sudo apt-get install -y postgresql-client
+          cd notrecinema-schema
+          sh init.sh
+          npm install
+
+      - name: Install the app and the browser
+        working-directory: notrecinema-app
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm exec playwright install --with-deps chromium
+
+      - name: Run e2e tests
+        working-directory: notrecinema-app
+        run: pnpm test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: notrecinema-app/test-results
+          retention-days: 7

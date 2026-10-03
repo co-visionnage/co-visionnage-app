@@ -3,7 +3,7 @@
 import { Flame, Trophy } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { createClient } from '@/shared/api/postgres/client';
+import { createClient } from '@/shared/api/go/client';
 import { useAppSounds } from '@/shared/hooks';
 import { FamilyAchievements } from '@/shared/types';
 import {
@@ -71,8 +71,8 @@ export const AchievementsDialog = ({
                 <Flame className='h-8 w-8 shrink-0' />
                 <p className='font-black text-black'>
                   Серия из {data.currentStreakWeeks}{' '}
-                  {data.currentStreakWeeks === 1 ? 'недели' : 'недель'} подряд
-                  с активностью!
+                  {data.currentStreakWeeks === 1 ? 'недели' : 'недель'} подряд с
+                  активностью!
                 </p>
               </div>
             ) : undefined}
@@ -82,9 +82,7 @@ export const AchievementsDialog = ({
                 <div
                   key={achievement.id}
                   className={`border-2 border-black p-3 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] ${
-                    achievement.unlocked
-                      ? 'bg-lime-300'
-                      : 'bg-white opacity-70'
+                    achievement.unlocked ? 'bg-lime-300' : 'bg-white opacity-70'
                   }`}
                 >
                   <div className='flex items-center justify-between gap-2'>

@@ -3,11 +3,12 @@
 import { Crown, ShieldCheck, Trash2, Users } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { FamilyInvitations } from '@/features/family-invitations';
 import {
   setMemberRoleAction,
   transferFamilyOwnershipAction,
 } from '@/shared/actions/family-postgres';
-import { createClient } from '@/shared/api/postgres/client';
+import { createClient } from '@/shared/api/go/client';
 import { useAppSounds } from '@/shared/hooks';
 import { FamilyMember, FamilyRole } from '@/shared/types';
 import {
@@ -250,6 +251,10 @@ export function FamilyMembersDialog({
               </div>
             );
           })}
+
+          {currentUserRole === 'owner' || currentUserRole === 'admin' ? (
+            <FamilyInvitations familyId={familyId} />
+          ) : undefined}
         </div>
       </DialogContent>
     </Dialog>

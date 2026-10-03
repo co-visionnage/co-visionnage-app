@@ -1,9 +1,10 @@
-import { type NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 
-import { updateSession } from '@/shared/api/postgres/middleware';
-
-export default async function proxy(request: NextRequest) {
-  return await updateSession(request);
+// Sessions live in the Go API (the browser sends its cookie to /api/v1/*
+// through the rewrite in next.config.ts), so there is nothing to refresh
+// here; the proxy stays as the single place to add request-level logic.
+export default function proxy() {
+  return NextResponse.next();
 }
 
 export const config = {

@@ -2,15 +2,15 @@
 
 import { revalidatePath } from 'next/cache';
 
-import {
-  requireCurrentUser,
-  withUserContext,
-} from '@/shared/api/postgres/server';
+import { actionErrorMessage, apiJson } from '@/shared/api/go/server';
+import { requireCurrentUser } from '@/shared/api/go/session';
 
 export type VotingActionState = {
   error?: string;
   success?: boolean;
 };
+
+const DEFAULT_POLL_TITLE = 'Что смотрим сегодня?';
 
 export async function createWatchPollAction(
   familyId: string,
@@ -18,7 +18,6 @@ export async function createWatchPollAction(
   title: string,
 ): Promise<VotingActionState> {
   const user = await requireCurrentUser().catch(() => {});
-  const trimmedTitle = title.trim();
   const uniqueSeriesIds = [...new Set(seriesIds)];
 
   if (!user) return { error: 'Не авторизован' };
@@ -27,39 +26,16 @@ export async function createWatchPollAction(
   }
 
   try {
-    await withUserContext(user.id, async (client) => {
-      const pollResult = await client.query<{ id: string }>(
-        `
-          INSERT INTO public.family_watch_polls (family_id, created_by, title)
-          VALUES ($1, $2, $3)
-          RETURNING id
-        `,
-        [familyId, user.id, trimmedTitle || 'Что смотрим сегодня?'],
-      );
-
-      const pollId = pollResult.rows[0].id;
-
-      // Scoped to family_id, not just "any series that exists" -- the FK
-      // on family_watch_poll_options.series_id only requires the id to
-      // exist somewhere, not that it belongs to this poll's family.
-      await client.query(
-        `
-          INSERT INTO public.family_watch_poll_options (poll_id, series_id)
-          SELECT $1, series.id
-          FROM public.family_series series
-          WHERE series.id = ANY($2::uuid[])
-            AND series.family_id = $3
-          ON CONFLICT DO NOTHING
-        `,
-        [pollId, uniqueSeriesIds, familyId],
-      );
+    await apiJson(`/families/${encodeURIComponent(familyId)}/polls`, {
+      method: 'POST',
+      body: {
+        title: title.trim() || DEFAULT_POLL_TITLE,
+        seriesIds: uniqueSeriesIds,
+      },
     });
   } catch (error) {
     return {
-      error:
-        error instanceof Error
-          ? error.message
-          : 'Не удалось создать голосование',
+      error: actionErrorMessage(error, 'Не удалось создать голосование'),
     };
   }
 
@@ -76,22 +52,12 @@ export async function voteWatchPollAction(
   if (!user) return { error: 'Не авторизован' };
 
   try {
-    await withUserContext(user.id, async (client) => {
-      await client.query(
-        `
-          INSERT INTO public.family_watch_poll_votes (poll_id, option_id, user_id)
-          VALUES ($1, $2, $3)
-          ON CONFLICT (poll_id, user_id) DO UPDATE
-          SET option_id = EXCLUDED.option_id
-        `,
-        [pollId, optionId, user.id],
-      );
+    await apiJson(`/polls/${encodeURIComponent(pollId)}/votes`, {
+      method: 'POST',
+      body: { optionId },
     });
   } catch (error) {
-    return {
-      error:
-        error instanceof Error ? error.message : 'Не удалось проголосовать',
-    };
+    return { error: actionErrorMessage(error, 'Не удалось проголосовать') };
   }
 
   revalidatePath('/');
@@ -106,22 +72,12 @@ export async function closeWatchPollAction(
   if (!user) return { error: 'Не авторизован' };
 
   try {
-    await withUserContext(user.id, async (client) => {
-      await client.query(
-        `
-          UPDATE public.family_watch_polls
-          SET is_open = false, closed_at = NOW()
-          WHERE id = $1
-        `,
-        [pollId],
-      );
+    await apiJson(`/polls/${encodeURIComponent(pollId)}/close`, {
+      method: 'POST',
     });
   } catch (error) {
     return {
-      error:
-        error instanceof Error
-          ? error.message
-          : 'Не удалось завершить голосование',
+      error: actionErrorMessage(error, 'Не удалось завершить голосование'),
     };
   }
 

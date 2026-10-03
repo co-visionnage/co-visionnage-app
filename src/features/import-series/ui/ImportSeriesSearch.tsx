@@ -1,10 +1,12 @@
 'use client';
 
+import type { ImportedSeriesDto } from '@/shared/api/go/dto';
 import type { ImportedSeries } from '@/shared/lib/importSeries/types';
 
 import { Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+import { toImportedSeries } from '@/shared/api/go/dto';
 import { useAppSounds, useDebounce } from '@/shared/hooks';
 import { Button, Input } from '@/shared/ui/lib';
 
@@ -36,11 +38,11 @@ export const ImportSeriesSearch = ({
 
       try {
         const response = await fetch(
-          `/api/import/search?query=${encodeURIComponent(debouncedQuery)}`,
+          `/api/v1/import/search?query=${encodeURIComponent(debouncedQuery)}`,
           { signal: controller.signal },
         );
         const data = (await response.json()) as {
-          results?: ImportedSeries[];
+          results?: ImportedSeriesDto[];
           error?: string;
         };
 
@@ -54,7 +56,7 @@ export const ImportSeriesSearch = ({
           return;
         }
 
-        setResults(data.results ?? []);
+        setResults((data.results ?? []).map((dto) => toImportedSeries(dto)));
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') {
           return;
