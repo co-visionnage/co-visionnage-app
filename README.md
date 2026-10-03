@@ -98,7 +98,7 @@ pnpm test:e2e
 Playwright сам запускает fake Resend, `go run ./cmd/api`,
 `go run ./cmd/worker` и `next dev` (порты: `E2E_PORT` 3399, `E2E_API_PORT`
 18080, воркер 8081, почта `FAKE_RESEND_PORT` 18025), а `e2e/global-setup.ts`
-накатывает миграции и сбрасывает таблицу лимитов запросов. Репозитории
+сбрасывает таблицу лимитов запросов (миграции накатываются командой запуска API). Репозитории
 `notrecinema-api`, `notrecinema-worker` и `notrecinema-schema` должны лежать
 рядом с этим. В CI это делает job `e2e` (`.github/workflows/ci.yml`); ему
 нужен секрет `E2E_CHECKOUT_TOKEN` — токен с правом чтения остальных

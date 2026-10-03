@@ -15,7 +15,8 @@ const apiURL = `http://localhost:${API_PORT}`;
 //   fake Resend      -- e2e/support/fake-resend.mjs, collects every letter.
 //   Go API + worker  -- ../notrecinema-api, ../notrecinema-worker.
 //   Next.js          -- this app, proxying /api/v1 to the Go API.
-// globalSetup only applies the schema migrations.
+// The schema migrations run as part of the API's start command: Playwright
+// starts the web servers before globalSetup, and the API needs the schema.
 const databaseUrl = process.env.DATABASE_URL ?? '';
 const natsUrl = process.env.NATS_URL ?? 'nats://localhost:4222';
 const sharedSecret = 'e2e-unsubscribe-secret-not-for-production';
@@ -52,8 +53,9 @@ export default defineConfig({
       timeout: 15_000,
     },
     {
-      command: 'go run ./cmd/api',
+      command: 'node ../notrecinema-schema/migrate.mjs && go run ./cmd/api',
       cwd: '../notrecinema-api',
+      stdout: 'pipe',
       url: `${apiURL}/healthz`,
       env: { ...goEnvironment, PORT: API_PORT },
       reuseExistingServer: !process.env.CI,
@@ -62,6 +64,7 @@ export default defineConfig({
     {
       command: 'go run ./cmd/worker',
       cwd: '../notrecinema-worker',
+      stdout: 'pipe',
       url: `http://localhost:${WORKER_HEALTH_PORT}/readyz`,
       env: goEnvironment,
       reuseExistingServer: !process.env.CI,
