@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { getSeriesComments } from '@/shared/api/postgres/queries';
+import { getSeriesComments } from '@/shared/api/go/queries';
 
 export async function GET(
   _request: NextRequest,

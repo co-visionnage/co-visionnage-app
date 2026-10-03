@@ -3,7 +3,7 @@
 import { BarChart3 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { createClient } from '@/shared/api/postgres/client';
+import { createClient } from '@/shared/api/go/client';
 import { useAppSounds } from '@/shared/hooks';
 import { FamilyStats } from '@/shared/types';
 import {

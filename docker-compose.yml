@@ -1,8 +1,17 @@
+# The frontend only. Data, auth, mail and notifications live in the Go
+# services (../notrecinema-api, ../notrecinema-worker); run them with their
+# own compose files and point API_URL at the API.
+#
+# Local run against an API on the host:
+#   API_URL=http://host.docker.internal:8080 docker compose up --build
 services:
   app:
     env_file:
       - .env
-    build: .
+    build:
+      context: .
+      args:
+        API_URL: ${API_URL:-http://api:8080}
     container_name: notre-cinema-app
     restart: always
     ports:
@@ -10,89 +19,4 @@ services:
     environment:
       NODE_ENV: production
       HOSTNAME: '0.0.0.0'
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-      minio:
-        condition: service_started
-    networks:
-      - notre-cinema-net
-
-  migrate:
-    env_file:
-      - .env
-    build:
-      context: ../notrecinema-schema
-    container_name: notre-cinema-migrate
-    environment:
-      MIGRATE_DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - notre-cinema-net
-
-  postgres:
-    env_file:
-      - .env
-    image: postgres:16-alpine
-    container_name: notre-cinema-postgres
-    restart: unless-stopped
-    ports:
-      - '5432:5432'
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ../notrecinema-schema/init.sh:/docker-entrypoint-initdb.d/01-init.sh:ro
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    networks:
-      - notre-cinema-net
-
-  minio:
-    env_file:
-      - .env
-    image: minio/minio:latest
-    container_name: notre-cinema-minio
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    ports:
-      - '9000:9000'
-      - '9001:9001'
-    environment:
-      MINIO_ROOT_USER: ${STORAGE_ACCESS_KEY}
-      MINIO_ROOT_PASSWORD: ${STORAGE_SECRET_KEY}
-    volumes:
-      - minio_data:/data
-    networks:
-      - notre-cinema-net
-
-  minio-setup:
-    env_file:
-      - .env
-    image: minio/mc:latest
-    container_name: notre-cinema-minio-setup
-    depends_on:
-      - minio
-    networks:
-      - notre-cinema-net
-    entrypoint: >
-      /bin/sh -c "until (/usr/bin/mc alias set local http://minio:9000
-      ${STORAGE_ACCESS_KEY} ${STORAGE_SECRET_KEY}) do echo 'waiting for minio';
-      sleep 2; done; /usr/bin/mc mb --ignore-existing local/${STORAGE_BUCKET};
-      /usr/bin/mc anonymous set download local/${STORAGE_BUCKET};"
-
-networks:
-  notre-cinema-net:
-    driver: bridge
-
-volumes:
-  postgres_data:
-  minio_data:
+      API_URL: ${API_URL:-http://api:8080}

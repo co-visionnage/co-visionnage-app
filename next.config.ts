@@ -20,8 +20,21 @@ function storagePublicUrlPattern() {
 
 const storagePattern = storagePublicUrlPattern();
 
+// The browser talks to the Go API through the frontend's own origin: the
+// session cookie stays first-party and no CORS is needed. API_URL is where
+// the Go API is reachable from this server (internal network in production).
+const apiUrl = (process.env.API_URL ?? 'http://localhost:8080').replace(
+  /\/$/,
+  '',
+);
+
 const nextConfig: NextConfig = {
   output: 'standalone',
+  async rewrites() {
+    return [
+      { source: '/api/v1/:path*', destination: `${apiUrl}/api/v1/:path*` },
+    ];
+  },
   images: {
     remotePatterns: [
       // OMDb poster images

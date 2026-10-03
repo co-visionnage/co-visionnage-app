@@ -8,7 +8,7 @@ import {
   deleteSeriesCommentAction,
   toggleSeriesReactionAction,
 } from '@/shared/actions/comments-postgres';
-import { createClient } from '@/shared/api/postgres/client';
+import { createClient } from '@/shared/api/go/client';
 import { useAppSounds } from '@/shared/hooks';
 import { SeriesComment, SeriesReaction } from '@/shared/types';
 import {

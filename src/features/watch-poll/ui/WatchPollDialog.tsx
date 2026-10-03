@@ -8,7 +8,7 @@ import {
   createWatchPollAction,
   voteWatchPollAction,
 } from '@/shared/actions/voting-postgres';
-import { createClient } from '@/shared/api/postgres/client';
+import { createClient } from '@/shared/api/go/client';
 import { useAppSounds } from '@/shared/hooks';
 import { Series, WatchPoll } from '@/shared/types';
 import {

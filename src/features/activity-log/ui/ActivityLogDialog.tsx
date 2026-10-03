@@ -3,7 +3,7 @@
 import { ScrollText } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { createClient } from '@/shared/api/postgres/client';
+import { createClient } from '@/shared/api/go/client';
 import { useAppSounds } from '@/shared/hooks';
 import { FamilyActivityEntry } from '@/shared/types';
 import {
@@ -22,10 +22,25 @@ interface ActivityLogDialogProperties {
 function describeEntry(entry: FamilyActivityEntry): string {
   switch (entry.action) {
     case 'series_added': {
-      return `добавил(а) «${entry.detail}»`;
+      return `добавил(а) «${entry.detail ?? entry.targetLabel}»`;
     }
     case 'series_removed': {
-      return `удалил(а) «${entry.detail}»`;
+      return `удалил(а) «${entry.detail ?? entry.targetLabel}»`;
+    }
+    case 'series_bulk_added': {
+      return `добавил(а): ${entry.detail ?? ''}`;
+    }
+    case 'member_removed': {
+      return `удалил(а) из семьи ${entry.targetLabel ?? 'участника'}`;
+    }
+    case 'poll_created': {
+      return `создал(а) голосование «${entry.targetLabel ?? ''}»`;
+    }
+    case 'poll_closed': {
+      return `закрыл(а) голосование «${entry.targetLabel ?? ''}»`;
+    }
+    case 'watch_event_created': {
+      return `запланировал(а) просмотр «${entry.targetLabel ?? ''}»`;
     }
     case 'member_joined': {
       return 'присоединился(ась) к семье';

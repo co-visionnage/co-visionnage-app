@@ -2,10 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 
-import {
-  requireCurrentUser,
-  withUserContext,
-} from '@/shared/api/postgres/server';
+import { actionErrorMessage, apiJson } from '@/shared/api/go/server';
+import { requireCurrentUser } from '@/shared/api/go/session';
 
 export type ProgressActionState = {
   error?: string;
@@ -25,29 +23,13 @@ export async function setSeriesProgressAction(
   }
 
   try {
-    await withUserContext(user.id, async (client) => {
-      await client.query(
-        `
-          INSERT INTO public.family_series_progress (
-            series_id,
-            user_id,
-            current_season,
-            current_episode
-          )
-          VALUES ($1, $2, $3, $4)
-          ON CONFLICT (series_id, user_id) DO UPDATE
-          SET current_season = EXCLUDED.current_season,
-              current_episode = EXCLUDED.current_episode
-        `,
-        [seriesId, user.id, currentSeason, currentEpisode],
-      );
+    await apiJson(`/series/${encodeURIComponent(seriesId)}/progress`, {
+      method: 'PUT',
+      body: { currentSeason, currentEpisode },
     });
   } catch (error) {
     return {
-      error:
-        error instanceof Error
-          ? error.message
-          : 'Не удалось сохранить прогресс',
+      error: actionErrorMessage(error, 'Не удалось сохранить прогресс'),
     };
   }
 

@@ -2,19 +2,60 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { createClient } from '@/shared/api/postgres/client';
 import {
   confirmTwoFactorAction,
   disableTwoFactorAction,
+  regenerateBackupCodesAction,
   startTwoFactorSetupAction,
 } from '@/shared/actions/two-factor-postgres';
+import { createClient } from '@/shared/api/go/client';
 import { useAppSounds } from '@/shared/hooks';
 import { Button, Input } from '@/shared/ui/lib';
+
+type BackupCodesProperties = {
+  codes: string[];
+  onDone: () => void;
+};
+
+// Shown exactly once: the API keeps only hashes, so a closed dialog means
+// the codes are gone for good (the user can issue a fresh set).
+function BackupCodes({ codes, onDone }: BackupCodesProperties) {
+  return (
+    <div className='grid gap-2' data-testid='backup-codes'>
+      <p className='text-sm font-black text-black'>
+        Резервные коды. Сохраните их сейчас — повторно показать их нельзя.
+      </p>
+      <p className='text-xs font-bold text-black'>
+        Каждый код подходит один раз вместо кода из приложения, если телефон
+        потерян.
+      </p>
+      <ul className='grid grid-cols-2 gap-1 border-2 border-black bg-yellow-100 p-2 font-mono text-sm font-bold'>
+        {codes.map((code) => (
+          <li key={code}>{code}</li>
+        ))}
+      </ul>
+      <Button
+        className='border-2 border-black bg-white font-black text-black hover:bg-gray-100'
+        onClick={() => void navigator.clipboard?.writeText(codes.join('\n'))}
+      >
+        Скопировать
+      </Button>
+      <Button
+        className='border-2 border-black bg-lime-400 font-black text-black hover:bg-lime-500'
+        onClick={onDone}
+      >
+        Я сохранил(а) коды
+      </Button>
+    </div>
+  );
+}
 
 export const TwoFactorSettings = () => {
   const client = useMemo(() => createClient(), []);
   const { playClick } = useAppSounds();
   const [isEnabled, setIsEnabled] = useState<boolean>();
+  const [backupCodesRemaining, setBackupCodesRemaining] = useState(0);
+  const [backupCodes, setBackupCodes] = useState<string[]>();
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>();
   const [secret, setSecret] = useState<string>();
   const [code, setCode] = useState('');
@@ -23,8 +64,9 @@ export const TwoFactorSettings = () => {
 
   const loadStatus = useCallback(async () => {
     try {
-      const { enabled } = await client.auth.getTwoFactorStatus();
-      setIsEnabled(enabled);
+      const status = await client.auth.getTwoFactorStatus();
+      setIsEnabled(status.enabled);
+      setBackupCodesRemaining(status.backupCodesRemaining ?? 0);
     } catch {
       // best-effort — status widget stays in loading state on failure
     }
@@ -63,8 +105,28 @@ export const TwoFactorSettings = () => {
       setError(result.error);
     } else {
       setIsEnabled(true);
+      setBackupCodes(result.backupCodes);
+      setBackupCodesRemaining(result.backupCodes?.length ?? 0);
       setQrCodeDataUrl(undefined);
       setSecret(undefined);
+      setCode('');
+    }
+
+    setIsPending(false);
+  };
+
+  const handleRegenerate = async () => {
+    playClick();
+    setIsPending(true);
+    setError(undefined);
+
+    const result = await regenerateBackupCodesAction(code);
+
+    if (result.error) {
+      setError(result.error);
+    } else {
+      setBackupCodes(result.backupCodes);
+      setBackupCodesRemaining(result.backupCodes?.length ?? 0);
       setCode('');
     }
 
@@ -82,6 +144,7 @@ export const TwoFactorSettings = () => {
       setError(result.error);
     } else {
       setIsEnabled(false);
+      setBackupCodesRemaining(0);
       setCode('');
     }
 
@@ -104,15 +167,38 @@ export const TwoFactorSettings = () => {
         </p>
       ) : undefined}
 
-      {isEnabled === true ? (
+      {backupCodes ? (
+        <BackupCodes
+          codes={backupCodes}
+          onDone={() => setBackupCodes(undefined)}
+        />
+      ) : undefined}
+
+      {isEnabled === true && !backupCodes ? (
         <div className='grid gap-2'>
           <p className='text-sm font-bold text-black'>Включена ✅</p>
+          <p
+            className={
+              backupCodesRemaining <= 2
+                ? 'text-sm font-black text-red-700'
+                : 'text-sm font-bold text-black'
+            }
+          >
+            Резервных кодов осталось: {backupCodesRemaining}
+          </p>
           <Input
             className='border-2 border-black bg-white font-bold'
-            placeholder='Код из приложения, чтобы отключить'
+            placeholder='Код из приложения (для действий ниже)'
             value={code}
             onChange={(event) => setCode(event.target.value)}
           />
+          <Button
+            className='border-2 border-black bg-yellow-400 font-black text-black hover:bg-yellow-500 disabled:cursor-not-allowed disabled:opacity-60'
+            disabled={isPending || code.length === 0}
+            onClick={() => void handleRegenerate()}
+          >
+            Выпустить новые резервные коды
+          </Button>
           <Button
             className='border-2 border-black bg-red-500 font-black text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60'
             disabled={isPending || code.length === 0}
@@ -136,8 +222,8 @@ export const TwoFactorSettings = () => {
       {qrCodeDataUrl ? (
         <div className='grid gap-2'>
           <p className='text-xs font-bold text-black'>
-            Отсканируйте QR в приложении-аутентификаторе (Google
-            Authenticator, Authy и т.п.) или введите код вручную:
+            Отсканируйте QR в приложении-аутентификаторе (Google Authenticator,
+            Authy и т.п.) или введите код вручную:
           </p>
           <img
             alt='QR-код для двухфакторной аутентификации'
@@ -145,7 +231,7 @@ export const TwoFactorSettings = () => {
             src={qrCodeDataUrl}
           />
           {secret ? (
-            <p className='break-all text-center text-xs font-bold text-gray-500'>
+            <p className='text-center text-xs font-bold break-all text-gray-500'>
               {secret}
             </p>
           ) : undefined}

@@ -1,10 +1,12 @@
 'use client';
 
+import type { ImportedSeriesDto } from '@/shared/api/go/dto';
 import type { ImportedSeries } from '@/shared/lib/importSeries/types';
 
 import { ListChecks } from 'lucide-react';
 import { useState } from 'react';
 
+import { toImportedSeries } from '@/shared/api/go/dto';
 import { useAppSounds } from '@/shared/hooks';
 import { parseImdbWatchlistCsv } from '@/shared/lib/importSeries/imdbCsv';
 import { SeriesData } from '@/shared/types';
@@ -72,10 +74,10 @@ export const BulkImportDialog = ({ onAddMany }: BulkImportDialogProperties) => {
 
     try {
       const response = await fetch(
-        `/api/import/trakt?username=${encodeURIComponent(username)}`,
+        `/api/v1/import/trakt?username=${encodeURIComponent(username)}`,
       );
       const data = (await response.json()) as {
-        results?: ImportedSeries[];
+        results?: ImportedSeriesDto[];
         error?: string;
       };
 
@@ -89,7 +91,7 @@ export const BulkImportDialog = ({ onAddMany }: BulkImportDialogProperties) => {
         return;
       }
 
-      setResults(data.results ?? []);
+      setResults((data.results ?? []).map((dto) => toImportedSeries(dto)));
     } catch {
       setError('Не удалось загрузить список Trakt');
     } finally {

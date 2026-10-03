@@ -3,7 +3,7 @@
 import { Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
-import { createClient } from '@/shared/api/postgres/client';
+import { createClient } from '@/shared/api/go/client';
 import { Recommendation } from '@/shared/types';
 
 interface RecommendationsSectionProperties {

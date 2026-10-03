@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { DeleteAccountButton } from '@/features/account-deletion';
 import { PushNotificationToggle } from '@/features/push-notifications';
 import { TwoFactorSettings } from '@/features/two-factor';
-import { createClient } from '@/shared/api/postgres/client';
+import { createClient } from '@/shared/api/go/client';
 import { useAppSounds, useUiPreferences } from '@/shared/hooks';
 import { AppTheme, AuthMode } from '@/shared/types';
 import {
@@ -253,6 +253,13 @@ export const SeriesHeader = ({
 
                   <TwoFactorSettings />
 
+                  <Link
+                    className='block border-4 border-black bg-yellow-400 p-4 text-center font-black text-black uppercase shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:bg-yellow-300'
+                    href='/settings'
+                  >
+                    Пароль, сессии и уведомления
+                  </Link>
+
                   <label className='flex items-center justify-between gap-4 border-4 border-black bg-white p-4 font-black text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]'>
                     <span>Звуки интерфейса</span>
                     <Checkbox
@@ -281,7 +288,7 @@ export const SeriesHeader = ({
                       <a
                         download
                         className='border-2 border-black bg-lime-300 p-2 text-center text-xs font-black text-black hover:bg-lime-400'
-                        href='/api/export/data?format=json'
+                        href='/api/v1/export/data?format=json'
                         onClick={() => playClick()}
                       >
                         JSON
@@ -289,7 +296,7 @@ export const SeriesHeader = ({
                       <a
                         download
                         className='border-2 border-black bg-cyan-300 p-2 text-center text-xs font-black text-black hover:bg-cyan-400'
-                        href='/api/export/data?format=csv'
+                        href='/api/v1/export/data?format=csv'
                         onClick={() => playClick()}
                       >
                         CSV
@@ -339,7 +346,7 @@ export const SeriesHeader = ({
                   </p>
                   <input
                     className='h-14 border-4 border-black bg-white px-4 text-center text-lg font-bold outline-none focus:bg-yellow-50'
-                    placeholder='123456'
+                    placeholder='Код из приложения или резервный'
                     value={twoFactorCode}
                     onChange={(event) => setTwoFactorCode(event.target.value)}
                   />
@@ -451,6 +458,14 @@ export const SeriesHeader = ({
                         <p className='text-sm font-black text-red-700'>
                           {inlinePasswordError}
                         </p>
+                      ) : undefined}
+                      {mode === 'login' ? (
+                        <Link
+                          className='w-fit text-sm font-black underline decoration-2 underline-offset-4'
+                          href='/forgot-password'
+                        >
+                          Забыли пароль?
+                        </Link>
                       ) : undefined}
                     </div>
 
