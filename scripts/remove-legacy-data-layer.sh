@@ -10,7 +10,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-git rm -r --quiet \
+git rm -r --quiet --ignore-unmatch \
   src/app/api/auth \
   src/app/auth \
   src/app/api/cron \
