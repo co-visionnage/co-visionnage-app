@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -79,7 +79,7 @@ jobs:
           cache-dependency-path: |
             notrecinema-api/go.sum
             notrecinema-worker/go.sum
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           package_json_file: notrecinema-app/package.json
       - uses: actions/setup-node@v4
