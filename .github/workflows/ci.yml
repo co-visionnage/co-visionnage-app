@@ -8,9 +8,9 @@ jobs:
   checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: pnpm
@@ -54,35 +54,35 @@ jobs:
       # The other repositories are private: E2E_CHECKOUT_TOKEN is a token
       # with read access to them (the default GITHUB_TOKEN cannot read
       # other repositories).
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: notrecinema-app
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: co-visionnage/notrecinema-api
           path: notrecinema-api
           token: ${{ secrets.E2E_CHECKOUT_TOKEN }}
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: co-visionnage/notrecinema-worker
           path: notrecinema-worker
           token: ${{ secrets.E2E_CHECKOUT_TOKEN }}
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: co-visionnage/database
           path: notrecinema-schema
           token: ${{ secrets.E2E_CHECKOUT_TOKEN }}
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version: '1.26'
           cache-dependency-path: |
             notrecinema-api/go.sum
             notrecinema-worker/go.sum
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           package_json_file: notrecinema-app/package.json
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: pnpm
@@ -110,7 +110,7 @@ jobs:
         working-directory: notrecinema-app
         run: pnpm test:e2e
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-traces
