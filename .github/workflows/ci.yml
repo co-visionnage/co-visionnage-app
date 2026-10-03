@@ -36,12 +36,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-      nats:
-        image: nats:2.10-alpine
-        ports:
-          - 4222:4222
-        options: >-
-          --entrypoint "nats-server"
     env:
       CI: 'true'
       POSTGRES_DB: notrecinema_e2e
@@ -93,6 +87,11 @@ jobs:
           node-version: 24
           cache: pnpm
           cache-dependency-path: notrecinema-app/pnpm-lock.yaml
+
+      # The API creates JetStream streams, so NATS must run with -js; a
+      # service container cannot pass arguments to the server, hence docker run.
+      - name: Start NATS with JetStream
+        run: docker run -d --name nats -p 4222:4222 nats:2.10-alpine -js
 
       - name: Create the app role and install schema tooling
         run: |
