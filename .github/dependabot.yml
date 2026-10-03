@@ -19,9 +19,12 @@ updates:
     commit-message:
       prefix: chore
       include: scope
+<<<<<<< HEAD
     groups:
       docker-minor-and-patch:
         update-types: [minor, patch]
+=======
+>>>>>>> origin/main
   - package-ecosystem: github-actions
     directory: /
     schedule:
@@ -29,6 +32,9 @@ updates:
     commit-message:
       prefix: chore
       include: scope
+<<<<<<< HEAD
     groups:
       actions-minor-and-patch:
         update-types: [minor, patch]
+=======
+>>>>>>> origin/main

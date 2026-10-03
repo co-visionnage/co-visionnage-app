@@ -4,9 +4,11 @@ import { waitForLetter } from './support/mail';
 import {
   loginThroughApi,
   newDevice,
+  pageAlert,
   PASSWORD,
   registerThroughApi,
   uniqueEmail,
+  verifyEmailThroughLetter,
 } from './support/users';
 
 test.describe('account settings', () => {
@@ -17,6 +19,7 @@ test.describe('account settings', () => {
     const email = uniqueEmail('e2e-pass');
     const newPassword = 'Changed-Pass-7!';
     await registerThroughApi(page, { email, name: 'E2E Password' });
+    await verifyEmailThroughLetter(page, email);
 
     // Second device with its own session.
     const other = await newDevice(browser);
@@ -53,7 +56,7 @@ test.describe('account settings', () => {
     await page.getByLabel('Подтверждение пароля').fill('Changed-Pass-7!');
     await page.getByRole('button', { name: 'Сменить пароль' }).click();
 
-    await expect(page.getByRole('alert')).toBeVisible();
+    await expect(pageAlert(page)).toBeVisible();
   });
 
   test('the sessions list shows every device and revokes a chosen one', async ({

@@ -6,6 +6,7 @@ import {
   registerThroughUi,
   totpCode,
   uniqueEmail,
+  verifyEmailThroughLetter,
 } from './support/users';
 
 // Turns 2FA on from /settings and returns the TOTP secret and the backup
@@ -42,6 +43,7 @@ test.describe('two-factor authentication', () => {
   }) => {
     const email = uniqueEmail('e2e-2fa');
     await registerThroughUi(page, { email, name: 'E2E TwoFactor' });
+    await verifyEmailThroughLetter(page, email);
 
     const { backupCodes } = await enableTwoFactor(page);
     await waitForLetter(email, {
@@ -78,6 +80,7 @@ test.describe('two-factor authentication', () => {
   }) => {
     const email = uniqueEmail('e2e-2fa-regen');
     await registerThroughUi(page, { email, name: 'E2E Regen' });
+    await verifyEmailThroughLetter(page, email);
 
     const { secret, backupCodes: oldCodes } = await enableTwoFactor(page);
 
@@ -116,6 +119,7 @@ test.describe('two-factor authentication', () => {
   }) => {
     const email = uniqueEmail('e2e-2fa-off');
     await registerThroughUi(page, { email, name: 'E2E TotpOff' });
+    await verifyEmailThroughLetter(page, email);
     const { secret } = await enableTwoFactor(page);
 
     await page

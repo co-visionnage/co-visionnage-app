@@ -3,6 +3,8 @@ import type { Browser, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { generate } from 'otplib';
 
+import { linkTo, waitForLetter } from './mail';
+
 export const PASSWORD = 'TestPass123!';
 
 export function uniqueEmail(prefix: string) {
@@ -25,7 +27,7 @@ export async function registerThroughUi(
   await page.getByPlaceholder('Как вас подписать').fill(name);
   await page.getByPlaceholder('Пароль', { exact: true }).fill(password);
   await page.getByPlaceholder('Подтверждение пароля').fill(password);
-  await page.getByRole('checkbox').check({ force: true }); // visually hidden (sr-only) checkbox
+  await tickLegalCheckbox(page);
   await page.getByRole('button', { name: 'Зарегистрироваться' }).click();
   await expect(page.getByText(name)).toBeVisible();
 }
@@ -39,7 +41,7 @@ export async function loginThroughUi(
   await page.getByRole('button', { name: 'ВХОД' }).click();
   await page.getByPlaceholder('email@example.com').fill(email);
   await page.getByPlaceholder('Пароль', { exact: true }).fill(password);
-  await page.getByRole('checkbox').check({ force: true });
+  await tickLegalCheckbox(page);
   // "Войти" also names the mode switch above the form: the submit button is
   // the last exact match ("Войти по GitHub" is not an exact match).
   await page.getByRole('button', { name: 'Войти', exact: true }).last().click();
@@ -93,4 +95,38 @@ export async function createFamilyThroughUi(page: Page, familyName: string) {
   await page.getByPlaceholder('Название (напр. Наша Семья)').fill(familyName);
   await page.getByRole('button', { name: 'Создать семью' }).click();
   await expect(page.getByText(familyName, { exact: false })).toBeVisible();
+}
+
+/**
+ * The legal-consent checkbox is visually hidden (sr-only) and, in the login
+ * form, ends up outside the viewport where Playwright's check() refuses to
+ * click it even with force. A DOM click toggles it just the same and fires
+ * the React handler.
+ */
+export async function tickLegalCheckbox(page: Page) {
+  await page
+    .getByRole('checkbox')
+    .evaluate((element: HTMLInputElement) => element.click());
+}
+
+/**
+ * Notifications and security letters go only to verified addresses, so a
+ * test that expects them confirms the address first, through the link in the
+ * verification letter -- exactly what a user does.
+ */
+export async function verifyEmailThroughLetter(page: Page, email: string) {
+  const letter = await waitForLetter(email, { subject: 'Подтвердите email' });
+  await page.goto(linkTo(letter, '/verify-email'));
+  await expect(page.getByText('Email подтверждён. Спасибо!')).toBeVisible();
+}
+
+/** The page's own alert: Next.js also renders a hidden route announcer with role=alert. */
+export function pageAlert(page: Page) {
+  return page.locator('[role="alert"]:not(#__next-route-announcer__)');
+}
+
+/** Opens the family tools menu and then its "Участники" dialog. */
+export async function openMembersDialog(page: Page) {
+  await page.getByRole('button', { name: 'ИНСТРУМЕНТЫ' }).click();
+  await page.getByRole('button', { name: 'УЧАСТНИКИ' }).click();
 }

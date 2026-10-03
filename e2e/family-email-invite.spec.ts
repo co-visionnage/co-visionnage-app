@@ -4,6 +4,8 @@ import { linkTo, waitForLetter } from './support/mail';
 import {
   createFamilyThroughUi,
   newDevice,
+  openMembersDialog,
+  pageAlert,
   registerThroughApi,
   uniqueEmail,
 } from './support/users';
@@ -20,7 +22,7 @@ test('an owner invites by email; the invitee follows the letter link and joins t
   await createFamilyThroughUi(page, familyName);
 
   // Invite from the members dialog.
-  await page.getByRole('button', { name: 'УЧАСТНИКИ' }).click();
+  await openMembersDialog(page);
   const invitations = page.getByTestId('family-invitations');
   await invitations.getByLabel('Email для приглашения').fill(inviteeEmail);
   await invitations.getByRole('button', { name: 'Пригласить' }).click();
@@ -59,11 +61,11 @@ test('an owner invites by email; the invitee follows the letter link and joins t
 
   // The invitation is spent: the same link no longer works...
   await invitee.page.goto(link);
-  await expect(invitee.page.getByRole('alert')).toBeVisible();
+  await expect(pageAlert(invitee.page)).toBeVisible();
 
   // ...and the owner sees a new member and no pending invitation.
   await page.reload();
-  await page.getByRole('button', { name: 'УЧАСТНИКИ' }).click();
+  await openMembersDialog(page);
   await expect(page.getByText('E2E Invitee')).toBeVisible();
   await expect(
     page.getByTestId('family-invitations').getByRole('listitem'),
@@ -84,7 +86,7 @@ test('a pending invitation can be revoked, which kills its link', async ({
   });
   await createFamilyThroughUi(page, `E2E Revoke Family ${Date.now()}`);
 
-  await page.getByRole('button', { name: 'УЧАСТНИКИ' }).click();
+  await openMembersDialog(page);
   const invitations = page.getByTestId('family-invitations');
   await invitations.getByLabel('Email для приглашения').fill(inviteeEmail);
   await invitations.getByRole('button', { name: 'Пригласить' }).click();
@@ -100,7 +102,7 @@ test('a pending invitation can be revoked, which kills its link', async ({
 
   const invitee = await newDevice(browser);
   await invitee.page.goto(link);
-  await expect(invitee.page.getByRole('alert')).toBeVisible();
+  await expect(pageAlert(invitee.page)).toBeVisible();
   await invitee.context.close();
 });
 
@@ -115,7 +117,7 @@ test('inviting again re-sends the letter instead of creating a second invitation
   });
   await createFamilyThroughUi(page, `E2E Twice Family ${Date.now()}`);
 
-  await page.getByRole('button', { name: 'УЧАСТНИКИ' }).click();
+  await openMembersDialog(page);
   const invitations = page.getByTestId('family-invitations');
 
   for (let attempt = 0; attempt < 2; attempt++) {
