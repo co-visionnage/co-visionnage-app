@@ -28,6 +28,7 @@ export const PushNotificationToggle = () => {
   useEffect(() => {
     if (!('serviceWorker' in navigator) || !('PushManager' in globalThis))
       return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- feature detection can only run in the browser, after mount
     setIsSupported(true);
 
     navigator.serviceWorker.ready
