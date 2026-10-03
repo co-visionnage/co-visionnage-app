@@ -3,8 +3,10 @@ import { expect, test } from '@playwright/test';
 import { linkTo, waitForLetter } from './support/mail';
 import {
   loginThroughUi,
+  pageAlert,
   registerThroughUi,
   uniqueEmail,
+  verifyEmailThroughLetter,
 } from './support/users';
 
 test.describe('email flows', () => {
@@ -63,7 +65,7 @@ test.describe('email flows', () => {
     await expect(page.getByText('Email подтверждён. Спасибо!')).toBeVisible();
 
     await page.goto(link);
-    await expect(page.getByRole('alert')).toBeVisible();
+    await expect(pageAlert(page)).toBeVisible();
   });
 
   test('forgot password: the letter link sets a new password that works, the old one does not', async ({
@@ -72,7 +74,7 @@ test.describe('email flows', () => {
     const email = uniqueEmail('e2e-reset');
     const newPassword = 'Brand-New-Pass-9!';
     await registerThroughUi(page, { email, name: 'E2E Reset' });
-    await waitForLetter(email, { subject: 'Подтвердите email' });
+    await verifyEmailThroughLetter(page, email);
 
     await page.context().clearCookies();
     await page.goto('/forgot-password');
@@ -123,7 +125,7 @@ test.describe('email flows', () => {
 
       await (password.startsWith('First')
         ? expect(page.getByText('Пароль изменён.')).toBeVisible()
-        : expect(page.getByRole('alert')).toBeVisible());
+        : expect(pageAlert(page)).toBeVisible());
     }
   });
 });

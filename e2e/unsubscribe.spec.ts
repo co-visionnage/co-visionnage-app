@@ -4,6 +4,7 @@ import { linkTo, waitForLetter } from './support/mail';
 import {
   createFamilyThroughUi,
   newDevice,
+  pageAlert,
   registerThroughApi,
   uniqueEmail,
 } from './support/users';
@@ -113,9 +114,9 @@ test('the unsubscribe page rejects a broken link and never unsubscribes on open'
   page,
 }) => {
   await page.goto('/unsubscribe');
-  await expect(page.getByRole('alert')).toContainText('нет кода отписки');
+  await expect(pageAlert(page)).toContainText('нет кода отписки');
 
   await page.goto('/unsubscribe?token=garbage');
   await page.getByRole('button', { name: 'Отписаться' }).click();
-  await expect(page.getByRole('alert')).toBeVisible();
+  await expect(pageAlert(page)).toBeVisible();
 });
