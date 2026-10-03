@@ -42,7 +42,7 @@
     "@antfu/eslint-config": "^6.7.3",
     "@eslint-react/eslint-plugin": "^2.5.4",
     "@eslint/eslintrc": "^3.3.3",
-    "@eslint/js": "^9.39.2",
+    "@eslint/js": "^9.39.5",
     "@evilmartians/lefthook": "^2.0.13",
     "@ianvs/prettier-plugin-sort-imports": "^4.7.0",
     "@next/eslint-plugin-next": "^16.1.1",
