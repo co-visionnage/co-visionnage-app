@@ -1,7 +1,10 @@
 FROM node:26-alpine AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
+# В node:26 нет corepack, поэтому pnpm ставится через npm. Версия та же, что в
+# packageManager (package.json): при её смене обновите и этот аргумент.
+ARG PNPM_VERSION=11.18.0
+RUN npm install --global pnpm@${PNPM_VERSION}
 
 FROM base AS deps
 RUN apk add --no-cache libc6-compat
@@ -13,7 +16,7 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-ENV NEXT_TELEMETRY_DISABLED 1
+ENV NEXT_TELEMETRY_DISABLED=1
 # next.config.ts bakes the /api/v1 rewrite destination in at build time, so
 # the address the Go API has on the container network must be known here
 # (and match the API_URL the container runs with).
@@ -28,8 +31,8 @@ RUN pnpm run build
 
 FROM base AS runner
 WORKDIR /app
-ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 COPY --from=builder /app/public ./public
@@ -37,6 +40,6 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 USER nextjs
 EXPOSE 3000
-ENV PORT 3000
-ENV HOSTNAME "0.0.0.0"
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 CMD ["node", "server.js"]
