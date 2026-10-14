@@ -16,6 +16,9 @@ type Preference = {
   push: boolean;
   email: boolean;
   emailSupported: boolean;
+  // false: the event has no push at all (the weekly digest is mail only).
+  // Absent in older API responses, which means push is available.
+  pushSupported?: boolean;
 };
 
 /** Матрица «тип события × push/почта»; сохраняется целиком одной кнопкой. */
@@ -115,7 +118,13 @@ export function NotificationPreferences() {
                       <input
                         aria-label={`${label}: push`}
                         checked={preference.push}
-                        className='h-5 w-5 accent-black'
+                        className='h-5 w-5 accent-black disabled:opacity-30'
+                        disabled={preference.pushSupported === false}
+                        title={
+                          preference.pushSupported === false
+                            ? 'По этому событию push не отправляются'
+                            : undefined
+                        }
                         type='checkbox'
                         onChange={() => toggle(preference.category, 'push')}
                       />

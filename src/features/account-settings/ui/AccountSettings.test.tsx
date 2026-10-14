@@ -181,4 +181,29 @@ describe('NotificationPreferences', () => {
 
     expect(await screen.findByLabelText('Голосования: почта')).toBeDisabled();
   });
+
+  it('shows the weekly digest as mail only', async () => {
+    mocked.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        preferences: [
+          {
+            category: 'weekly_digest',
+            push: false,
+            email: true,
+            emailSupported: true,
+            pushSupported: false,
+          },
+        ],
+      },
+    });
+    render(<NotificationPreferences />);
+
+    expect(
+      await screen.findByLabelText('Еженедельная сводка семьи: push'),
+    ).toBeDisabled();
+    expect(
+      screen.getByLabelText('Еженедельная сводка семьи: почта'),
+    ).toBeEnabled();
+  });
 });

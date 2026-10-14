@@ -6,5 +6,7 @@ export const CATEGORY_LABELS: Record<string, string> = {
   series_rated: 'Кто-то поставил оценку',
   poll: 'Голосования',
   watch_event: 'Встречи для просмотра',
+  event_reminder: 'Напоминание о скорой встрече',
   member_joined: 'Новый участник семьи',
+  weekly_digest: 'Еженедельная сводка семьи',
 };
