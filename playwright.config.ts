@@ -31,6 +31,9 @@ const goEnvironment = {
   RESEND_API_KEY: 'e2e-key',
   RESEND_API_URL: `http://localhost:${MAIL_PORT}`,
   MAIL_FROM: 'notrecinema <e2e@example.com>',
+  // Все тесты входят с одного адреса: стандартные 30 попыток за 15 минут
+  // закончились бы посреди прогона (ответ 429 на вход).
+  AUTH_IP_RATE_LIMIT: '1000',
 };
 
 export default defineConfig({
