@@ -1,0 +1,24 @@
+# Продакшн: образ фронтенда приходит из GHCR (его собирает CI). Контейнер
+# подключается к сети стека API (notrecinema-api/docker-compose.prod.yml), чтобы
+# обращаться к API по имени. Наружу публикуется только loopback-порт:
+# внешний доступ -- через nginx (роль nginx в notrecinema-infra).
+services:
+  app:
+    image: ghcr.io/co-visionnage/co-visionnage-app:${APP_IMAGE_TAG:-latest}
+    container_name: notrecinema-app
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:3000:3000'
+    environment:
+      NODE_ENV: production
+      HOSTNAME: '0.0.0.0'
+      # Тот же адрес, что и build-arg API_URL в образе (он вшит при сборке).
+      API_URL: http://notrecinema-api:8080
+    networks:
+      - notrecinema-net
+
+networks:
+  notrecinema-net:
+    # Сеть создаёт стек API; здесь только подключаемся к ней.
+    name: notrecinema-net
+    external: true
