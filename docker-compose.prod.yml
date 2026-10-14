@@ -2,6 +2,12 @@
 # подключается к сети стека API (notrecinema-api/docker-compose.prod.yml), чтобы
 # обращаться к API по имени. Наружу публикуется только loopback-порт:
 # внешний доступ -- через nginx (роль nginx в notrecinema-infra).
+# Своё имя проекта: по умолчанию его даёт имя каталога, а `--remove-orphans`
+# при деплое удаляет сервисы своего проекта, которых нет в compose-файле.
+# Без фиксированного имени деплой в чужой каталог (например /opt/notrecinema,
+# где живёт стек API) снёс бы чужие контейнеры.
+name: notrecinema-app
+
 services:
   app:
     image: ghcr.io/co-visionnage/co-visionnage-app:${APP_IMAGE_TAG:-latest}
