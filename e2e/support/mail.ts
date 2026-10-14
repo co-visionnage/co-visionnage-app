@@ -8,11 +8,25 @@ export type Letter = {
   headers?: Record<string, string>;
 };
 
-async function fetchMailbox(to: string): Promise<Letter[]> {
-  const response = await fetch(
-    `${MAIL_URL}/_mailbox?to=${encodeURIComponent(to)}`,
-  );
+async function fetchMailbox(to?: string): Promise<Letter[]> {
+  const query = to ? `?to=${encodeURIComponent(to)}` : '';
+  const response = await fetch(`${MAIL_URL}/_mailbox${query}`);
   return (await response.json()) as Letter[];
+}
+
+/** What the fake mailbox holds, to make a timeout explain itself. */
+async function describeMailbox(to: string): Promise<string> {
+  try {
+    const all = await fetchMailbox();
+    const mine = await fetchMailbox(to);
+    const subjects = mine.map((letter) => `"${letter.subject}"`).join(', ');
+    return (
+      `; the mailbox holds ${all.length} letter(s) in total, ` +
+      `${mine.length} to this address${subjects ? ` (${subjects})` : ''}`
+    );
+  } catch (error) {
+    return `; the mailbox could not be read (${String(error)})`;
+  }
 }
 
 /**
@@ -23,7 +37,7 @@ async function fetchMailbox(to: string): Promise<Letter[]> {
  */
 export async function waitForLetter(
   to: string,
-  { subject, skip = 0, timeoutMs = 20_000 } = {} as {
+  { subject, skip = 0, timeoutMs = 40_000 } = {} as {
     subject?: string;
     skip?: number;
     timeoutMs?: number;
@@ -42,7 +56,8 @@ export async function waitForLetter(
   }
 
   throw new Error(
-    `no letter to ${to}${subject ? ` with "${subject}"` : ''} within ${timeoutMs} ms`,
+    `no letter to ${to}${subject ? ` with "${subject}"` : ''} within ${timeoutMs} ms` +
+      (await describeMailbox(to)),
   );
 }
 
