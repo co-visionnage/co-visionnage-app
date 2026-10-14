@@ -11,6 +11,11 @@ import {
 import { createClient } from '@/shared/api/go/client';
 import { useAppSounds } from '@/shared/hooks';
 import { Button, Input } from '@/shared/ui/lib';
+import {
+  BACKUP_CODES_FILENAME,
+  backupCodesFileContent,
+  downloadTextFile,
+} from '../lib/backupCodesFile';
 
 type BackupCodesProperties = {
   codes: string[];
@@ -39,6 +44,18 @@ function BackupCodes({ codes, onDone }: BackupCodesProperties) {
         onClick={() => void navigator.clipboard?.writeText(codes.join('\n'))}
       >
         Скопировать
+      </Button>
+      <Button
+        className='border-2 border-black bg-white font-black text-black hover:bg-gray-100'
+        data-testid='download-backup-codes'
+        onClick={() =>
+          downloadTextFile(
+            backupCodesFileContent(codes, new Date()),
+            BACKUP_CODES_FILENAME,
+          )
+        }
+      >
+        Скачать файлом
       </Button>
       <Button
         className='border-2 border-black bg-lime-400 font-black text-black hover:bg-lime-500'
