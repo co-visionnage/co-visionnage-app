@@ -19,6 +19,11 @@ ENV NEXT_TELEMETRY_DISABLED 1
 # (and match the API_URL the container runs with).
 ARG API_URL=http://api:8080
 ENV API_URL=$API_URL
+# Публичные значения, которые Next.js вшивает при сборке (не секреты).
+ARG NEXT_PUBLIC_VAPID_PUBLIC_KEY=
+ARG STORAGE_PUBLIC_URL=
+ENV NEXT_PUBLIC_VAPID_PUBLIC_KEY=$NEXT_PUBLIC_VAPID_PUBLIC_KEY
+ENV STORAGE_PUBLIC_URL=$STORAGE_PUBLIC_URL
 RUN pnpm run build
 
 FROM base AS runner

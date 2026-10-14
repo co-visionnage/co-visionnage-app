@@ -116,3 +116,49 @@ jobs:
           name: playwright-traces
           path: notrecinema-app/test-results
           retention-days: 7
+
+  # Сборка образа и деплой -- только после проверок и E2E на main. Сборка
+  # общая для сервисов (co-visionnage/.github). Адреса и публичные ключи
+  # вшиваются в образ при сборке, поэтому берутся из переменных репозитория
+  # (Settings > Secrets and variables > Actions > Variables):
+  #   NEXT_PUBLIC_VAPID_PUBLIC_KEY, STORAGE_PUBLIC_URL (необязательны).
+  publish:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [checks, e2e]
+    permissions:
+      contents: read
+      packages: write
+    uses: co-visionnage/.github/.github/workflows/docker-publish.yml@main
+    with:
+      build-args: |
+        API_URL=http://notrecinema-api:8080
+        NEXT_PUBLIC_VAPID_PUBLIC_KEY=${{ vars.NEXT_PUBLIC_VAPID_PUBLIC_KEY }}
+        STORAGE_PUBLIC_URL=${{ vars.STORAGE_PUBLIC_URL }}
+
+  deploy-production:
+    needs: publish
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v7
+      - name: Deploy over SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          IMAGE_TAG: ${{ needs.publish.outputs.image-tag }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+          echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
+          # Репозиторий на сервере не клонируется: нужен только compose-файл.
+          ssh "$SSH_USER@$SSH_HOST" "mkdir -p $DEPLOY_PATH"
+          scp docker-compose.prod.yml "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/docker-compose.prod.yml"
+          ssh "$SSH_USER@$SSH_HOST" \
+            "cd $DEPLOY_PATH && \
+             export APP_IMAGE_TAG=$IMAGE_TAG && \
+             docker compose -f docker-compose.prod.yml pull app && \
+             docker compose -f docker-compose.prod.yml up -d --remove-orphans app && \
+             docker image prune -f"
